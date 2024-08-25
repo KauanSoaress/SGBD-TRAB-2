@@ -1,4 +1,4 @@
-package com.sgbd.graphs;
+package com.sgbd.models.graphs;
 
 import java.util.*;
 

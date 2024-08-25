@@ -1,7 +1,7 @@
 package com.sgbd;
 
-import com.sgbd.graphs.SerializationGraph;
-import com.sgbd.graphs.WaitForGraph;
+import com.sgbd.models.graphs.SerializationGraph;
+import com.sgbd.models.graphs.WaitForGraph;
 
 public class Main {
     public static void main(String[] args) {

@@ -1,4 +1,4 @@
-package com.sgbd.graphs;
+package com.sgbd.models.graphs;
 
 public class WaitForGraph extends Graph {
 
