@@ -3,25 +3,40 @@ package com.sgbd.models.operations;
 import com.sgbd.models.operationTypes.OperationTypes;
 
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
 
 public class Operation {
     private UUID id;
     private Date timestamp;
     private OperationTypes type;
-    private String object;
+    private int transactionId;
+    private char object;
 
-    public Operation(OperationTypes type) {
+    public Operation(OperationTypes type, int transactionId, char object) {
         this.id = UUID.randomUUID();
         this.timestamp = new Date();
         this.type = type;
+        this.transactionId = transactionId;
+        this.object = object;
     }
 
-    public String getObject() {
+    public Operation(OperationTypes operationTypes, int transactionId) {
+        this.id = UUID.randomUUID();
+        this.timestamp = new Date();
+        this.type = operationTypes;
+        this.transactionId = transactionId;
+    }
+
+    public char getObject() {
         return object;
     }
 
-    public void setObject(String object) {
+    public Integer getTransactionId() {
+        return transactionId;
+    }
+
+    public void setObject(char object) {
         this.object = object;
     }
 
