@@ -1,3 +1,14 @@
+package com.sgbd.controllers;
+
+import com.sgbd.models.operations.Operation;
+import com.sgbd.models.transactions.Transaction;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.locks.Lock;
+
 public class Scheduler {
     private List<Lock> locks;
     private Map<String, List<String>> waitForGraph;

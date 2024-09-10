@@ -2,22 +2,24 @@ package com.sgbd.models.transactions;
 
 import com.sgbd.models.operations.Operation;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 public class Transaction {
-    private UUID id;
+    private int id;
     private List<Operation> operations;
 
-    public Transaction() {
-        this.id = UUID.randomUUID();
+    public Transaction(int id) {
+        this.id = id;
+        this.operations = new ArrayList<>();
     }
 
-    public UUID getId() {
+    public int getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(int id) {
         this.id = id;
     }
 
@@ -27,5 +29,9 @@ public class Transaction {
 
     public void setOperations(List<Operation> operations) {
         this.operations = operations;
+    }
+
+    public void addOperation(Operation operation) {
+        this.operations.add(operation);
     }
 }
