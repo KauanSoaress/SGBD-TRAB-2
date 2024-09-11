@@ -11,11 +11,11 @@ public class Lock {
 
     public Lock(Operation operation){
         this.operation = operation;
-        this.type = operation.getType() == OperationTypes.COMMIT ? LockTypes.COMMIT
+        this.type = operation.getType() == OperationTypes.COMMIT ? LockTypes.CERTIFY
                 : operation.getType() == OperationTypes.READ ? LockTypes.READ
                 : operation.getType() == OperationTypes.WRITE ? LockTypes.WRITE
                 : null;
-        this.status = LockStatus.ABORTED;
+        this.status = LockStatus.NOT_GRANTED;
     }
 
     public LockStatus getStatus() {
@@ -32,5 +32,9 @@ public class Lock {
 
     public Operation getOperation() {
         return operation;
+    }
+
+    public void certifyLock(){
+        type = LockTypes.CERTIFY;
     }
 }

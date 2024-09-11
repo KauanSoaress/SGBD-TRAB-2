@@ -5,8 +5,6 @@ import com.sgbd.models.lockTypes.LockTypes;
 import com.sgbd.models.locks.Lock;
 import com.sgbd.models.locks.LockStatus;
 import com.sgbd.models.operationTypes.OperationTypes;
-import com.sgbd.models.operations.Operation;
-import com.sgbd.models.transactions.Transaction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,10 +30,10 @@ public class LockTable {
                     return -1;
                 } else if (lockOnWait.getType() == LockTypes.WRITE) {
                     return lockOnGrant.getOperation().getTransactionId();
-                } else if (lockOnWait.getType() == LockTypes.COMMIT) {
+                } else if (lockOnWait.getType() == LockTypes.CERTIFY) {
                     return lockOnGrant.getOperation().getTransactionId();
                 }
-            } else if (lockOnWait.getType() == LockTypes.COMMIT || lockOnGrant.getType() == LockTypes.COMMIT) {
+            } else if (lockOnWait.getType() == LockTypes.CERTIFY || lockOnGrant.getType() == LockTypes.CERTIFY) {
                 return lockOnGrant.getOperation().getTransactionId();
             } else if (lockOnWait.getType() == LockTypes.READ || lockOnGrant.getType() == LockTypes.READ) {
                 return -1;
@@ -44,7 +42,7 @@ public class LockTable {
         return -1;
     }
 
-    public int addLock(Lock lockOnWait, List<Transaction> transactions) {
+    public int grantLock(Lock lockOnWait) {
 //        int conflictingTransaction = -1;
 //        for (Lock l: locks){
 //            conflictingTransaction = lockConflict(lockOnWait, l);
@@ -71,7 +69,7 @@ public class LockTable {
             }
             if (lockOnWait.getOperation().getType() == OperationTypes.READ) {
                 for (Lock l: locks) {
-                    if (l.getType() == LockTypes.COMMIT && l.getOperation().getObject() == lockOnWait.getOperation().getObject()) {
+                    if (l.getType() == LockTypes.CERTIFY && l.getOperation().getObject() == lockOnWait.getOperation().getObject()) {
                         waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), l.getOperation().getTransactionId());
                         lockOnWait.setStatus(LockStatus.WAITING);
                     } else if (lockOnWait.getStatus() != LockStatus.WAITING) {
@@ -80,24 +78,29 @@ public class LockTable {
                         // converter
                         // escalonar
                     }
-
-                    for (Transaction t: transactions) {
-                        if (t.getId() == l.getOperation().getTransactionId()) {
-                            for (Operation o: t.getOperations()) {
-                                if (o.getType() == OperationTypes.WRITE && t.getLocksByObj(lockOnWait.getOperation().getObject()) != null){
-                                    // converter para a leitura
-                                    // escalonar
-                                }
+                }
+            }
+            if (lockOnWait.getOperation().getType() == OperationTypes.COMMIT) {
+                // converter todos os wl em cl
+                boolean canConvert = true;
+                for (Lock l: locks) {
+                    if (l.getType() == LockTypes.WRITE && l.getOperation().getTransactionId() == lockOnWait.getOperation().getTransactionId()) {
+                        for (Lock b : locks) {
+                            if (b.getType() == LockTypes.READ &&
+                                    b.getOperation().getTransactionId() != l.getOperation().getTransactionId() &&
+                                    b.getOperation().getObject() == lockOnWait.getOperation().getObject()){
+                                canConvert = false;
                             }
+                        }
+                        if (canConvert) {
+                            l.certifyLock();
+                            // tem que ver se o status não é waiting
                         } else {
-                            // escalonar
+                            waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), l.getOperation().getTransactionId());
+                            lockOnWait.setStatus(LockStatus.WAITING);
                         }
                     }
                 }
-            }
-
-            if (lockOnWait.getOperation().getType() == OperationTypes.COMMIT) {
-                // converter todos os wl em cl
                 // se tiver rl no objeto alvo de outra transação aguarda
                 // senão concede cl
                 // escalonar

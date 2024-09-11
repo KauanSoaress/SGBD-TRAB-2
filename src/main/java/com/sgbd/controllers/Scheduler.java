@@ -39,7 +39,7 @@ public class Scheduler {
                 }
             }
             currentLock = new Lock(operation);
-            if (lockTable.addLock(currentLock, transactions) == 1) {
+            if (lockTable.grantLock(currentLock) == 1) {
                 System.out.println("Deadlock detected");
                 return 1;
             }
