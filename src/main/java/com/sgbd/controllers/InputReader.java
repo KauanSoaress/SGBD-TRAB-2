@@ -36,7 +36,7 @@ public class InputReader {
     }
 
 
-    private static List<Operation> parseOperations(String input) {
+    public static List<Operation> readInput(String input) {
         List<String> operationsString = parseOperationsString(input);
         List<Operation> operationsList = new ArrayList<>();
         Operation currentOperation = null;
@@ -56,31 +56,31 @@ public class InputReader {
         return operationsList;
     }
 
-    public List<Transaction> readInput(String input) {
-        List<Operation> operations = parseOperations(input);
-        List<Transaction> transactions = new ArrayList<>();
-        Set<Integer> transactionIds = new HashSet<>();
-        Transaction newTransaction = null;
-
-        for (Operation operation : operations) {
-            if (!transactionIds.contains(operation.getTransactionId())) {
-                newTransaction = new Transaction(operation.getTransactionId());
-                newTransaction.addOperation(operation);
-                transactions.add(newTransaction);
-                transactionIds.add(operation.getTransactionId());
-                newTransaction = null;
-            }
-            else {
-                for (Transaction transaction : transactions) {
-                    if (transaction.getId() == operation.getTransactionId()) {
-                        transaction.addOperation(operation);
-                        break;
-                    }
-                }
-            }
-        }
-
-        return transactions;
-
-    }
+//    public List<Transaction> readInput(String input) {
+//        List<Operation> operations = parseOperations(input);
+//        List<Transaction> transactions = new ArrayList<>();
+//        Set<Integer> transactionIds = new HashSet<>();
+//        Transaction newTransaction = null;
+//
+//        for (Operation operation : operations) {
+//            if (!transactionIds.contains(operation.getTransactionId())) {
+//                newTransaction = new Transaction(operation.getTransactionId());
+//                newTransaction.addOperation(operation);
+//                transactions.add(newTransaction);
+//                transactionIds.add(operation.getTransactionId());
+//                newTransaction = null;
+//            }
+//            else {
+//                for (Transaction transaction : transactions) {
+//                    if (transaction.getId() == operation.getTransactionId()) {
+//                        transaction.addOperation(operation);
+//                        break;
+//                    }
+//                }
+//            }
+//        }
+//
+//        return transactions;
+//
+//    }
 }

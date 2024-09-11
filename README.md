@@ -6,7 +6,7 @@
     - [ ] escalonamento
 
 - implementar serviços:
-    - [ ] ler o input (ler a string e converter em operações de uma transação)
+    - [x] ler o input (ler a string e converter em operações de uma transação)
     - [ ] escalonar:
         - [ ] verificar a possibilidade de conceder um bloqueio para aquela operação
         - [ ] algoritmo de embaralhar as transações
