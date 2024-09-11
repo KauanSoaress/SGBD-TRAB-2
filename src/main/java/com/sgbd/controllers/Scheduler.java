@@ -11,7 +11,7 @@ public class Scheduler {
     private LockTable lockTable;
     private List<Transaction> transactions;
     private Set<Integer> transactionsIds;
-
+//editado no pc do PET
     public Scheduler() {
         lockTable = new LockTable();
         transactionsIds = new HashSet<>();
@@ -39,7 +39,7 @@ public class Scheduler {
                 }
             }
             currentLock = new Lock(operation);
-            if (lockTable.addLock(currentLock) == 1) {
+            if (lockTable.addLock(currentLock, transactions) == 1) {
                 System.out.println("Deadlock detected");
                 return 1;
             }
