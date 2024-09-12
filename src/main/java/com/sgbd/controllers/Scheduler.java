@@ -1,41 +1,53 @@
 package com.sgbd.controllers;
 
+import com.sgbd.models.lockTable.LockTable;
+import com.sgbd.models.locks.Lock;
 import com.sgbd.models.operations.Operation;
 import com.sgbd.models.transactions.Transaction;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.locks.Lock;
+import java.util.*;
 
 public class Scheduler {
-    private List<Lock> locks;
-    private Map<String, List<String>> waitForGraph;
-
+    private LockTable lockTable;
+    private List<Transaction> transactions;
+    private Set<Integer> transactionsIds;
+//editado no pc do PET
     public Scheduler() {
-        this.locks = new ArrayList<>();
-        this.waitForGraph = new HashMap<>();
+        lockTable = new LockTable();
+        transactionsIds = new HashSet<>();
+        transactions = new ArrayList<>();
     }
 
-    public void schedule(List<Transaction> transactions) {
-        // Implementar lógica de escalonamento
-    }
+    public int schedule(List<Operation> operations) {
+        Lock currentLock;
+        Transaction newTransaction = null;
 
-    private boolean canGrantLock(Operation operation) {
-        // Implementar lógica para verificar a possibilidade de conceder um bloqueio
-        return true;
+        for (Operation operation : operations) {
+            if (!transactionsIds.contains(operation.getTransactionId())) {
+                newTransaction = new Transaction(operation.getTransactionId());
+                newTransaction.addOperation(operation);
+                transactions.add(newTransaction);
+                transactionsIds.add(operation.getTransactionId());
+                newTransaction = null;
+            }
+            else {
+                for (Transaction transaction : transactions) {
+                    if (transaction.getId() == operation.getTransactionId()) {
+                        transaction.addOperation(operation);
+                        break;
+                    }
+                }
+            }
+            currentLock = new Lock(operation);
+            if (lockTable.grantLock(currentLock) == 1) {
+                System.out.println("Deadlock detected");
+                return 1;
+            }
+        }
+        return 0;
     }
 
     private void updateSyslockinfo() {
         // Implementar lógica para atualizar a cópia do syslockinfo
-    }
-
-    private void updateWaitForGraph() {
-        // Implementar lógica para atualizar o grafo de espera e procurar por ciclos
-    }
-
-    private void preventDeadlock() {
-        // Implementar lógica para prevenir deadlock
     }
 }

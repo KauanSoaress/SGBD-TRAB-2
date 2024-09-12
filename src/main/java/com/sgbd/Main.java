@@ -1,27 +1,21 @@
 package com.sgbd;
 
 import com.sgbd.controllers.InputReader;
-import com.sgbd.models.graphs.SerializationGraph;
-import com.sgbd.models.graphs.WaitForGraph;
-import com.sgbd.models.transactions.Transaction;
+import com.sgbd.controllers.Scheduler;
+import com.sgbd.models.operations.Operation;
 
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
 
-        String entrada_ai = "r1(x)w2(y)c1r2(x)w1(x)c2";
-
+        String entrada_ai = "r4(v)r3(y)r1(y)r1(x)w2(u)r2(x)w1(y)r2(y)c1w4(u)r3(x)c4w3(u)w3(z)c3";
+        //String entrada_ai = "w2(u)w3(u)w4(u)w4(x)w2(x)";
+        
         InputReader inputReader = new InputReader();
-        List<Transaction> transactions = inputReader.readInput(entrada_ai);
-
-        System.out.println("Transactions: ");
-        for (Transaction transaction : transactions) {
-            System.out.println(transaction.getId() + ": ");
-            for (int i = 0; i < transaction.getOperations().size(); i++) {
-                System.out.println(transaction.getOperations().get(i).getType() + " " + transaction.getOperations().get(i).getTransactionId() + " " + transaction.getOperations().get(i).getObject());
-            }
-        }
+        List<Operation> operations = inputReader.readInput(entrada_ai);
+        Scheduler scheduler = new Scheduler();
+        System.out.println(scheduler.schedule(operations));
 
     }
 }
