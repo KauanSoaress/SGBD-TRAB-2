@@ -44,9 +44,6 @@ public class Scheduler {
                 return 1;
             }
         }
-
-
-
         return 0;
     }
 

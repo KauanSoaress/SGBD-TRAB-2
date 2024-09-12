@@ -43,73 +43,93 @@ public class LockTable {
     }
 
     public int grantLock(Lock lockOnWait) {
-//        int conflictingTransaction = -1;
-//        for (Lock l: locks){
-//            conflictingTransaction = lockConflict(lockOnWait, l);
-//            if (conflictingTransaction != -1){
-//                waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), conflictingTransaction);
-//                lockOnWait.setStatus(LockStatus.WAITING);
-//            }
-//            if (waitForGraph.hasCycle()){
-//                return 1;
-//            }
-//        }
+        boolean canGrant = false;
+        if (locks.isEmpty()) {
+            lockOnWait.setStatus(LockStatus.GRANTED);
+
+            System.out.println("Lock granted");
+
+            // converter
+            // escalonar
+        } else {
             if (lockOnWait.getOperation().getType() == OperationTypes.WRITE) {
-                for (Lock l: locks) {
-                    if (l.getOperation().getTransactionId() != lockOnWait.getOperation().getTransactionId() && l.getOperation().getObject() == lockOnWait.getOperation().getObject()) {
-                        waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), l.getOperation().getTransactionId());
-                        lockOnWait.setStatus(LockStatus.WAITING);
-                    } else if (lockOnWait.getStatus() != LockStatus.WAITING){
-                        lockOnWait.setStatus(LockStatus.GRANTED);
-                        locks.add(lockOnWait);
-                        // converter
-                        // escalonar
-                    }
-                }
-            }
-            if (lockOnWait.getOperation().getType() == OperationTypes.READ) {
-                for (Lock l: locks) {
-                    if (l.getType() == LockTypes.CERTIFY && l.getOperation().getObject() == lockOnWait.getOperation().getObject()) {
+                for (Lock l : locks) {
+                    if (l.getOperation().getTransactionId() != lockOnWait.getOperation().getTransactionId() &&
+                        l.getOperation().getObject() == lockOnWait.getOperation().getObject())
+                    {
                         waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), l.getOperation().getTransactionId());
                         lockOnWait.setStatus(LockStatus.WAITING);
                     } else if (lockOnWait.getStatus() != LockStatus.WAITING) {
                         lockOnWait.setStatus(LockStatus.GRANTED);
-                        locks.add(lockOnWait);
+
+                        System.out.println("Lock granted");
+
                         // converter
                         // escalonar
                     }
                 }
-            }
-            if (lockOnWait.getOperation().getType() == OperationTypes.COMMIT) {
-                // converter todos os wl em cl
+            } else if (lockOnWait.getOperation().getType() == OperationTypes.READ) {
+                for (Lock l : locks) {
+                    if (l.getType() == LockTypes.CERTIFY &&
+                        l.getOperation().getObject() == lockOnWait.getOperation().getObject())
+                    {
+                        waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), l.getOperation().getTransactionId());
+                        lockOnWait.setStatus(LockStatus.WAITING);
+                    } else if (lockOnWait.getStatus() != LockStatus.WAITING) {
+                        lockOnWait.setStatus(LockStatus.GRANTED);
+
+                        System.out.println("Lock granted");
+
+                        // se nessa transação teve uma write converter
+                        // escalonar
+                    }
+                }
+            } else if (lockOnWait.getOperation().getType() == OperationTypes.COMMIT) {
                 boolean canConvert = true;
-                for (Lock l: locks) {
-                    if (l.getType() == LockTypes.WRITE && l.getOperation().getTransactionId() == lockOnWait.getOperation().getTransactionId()) {
-                        for (Lock b : locks) {
-                            if (b.getType() == LockTypes.READ &&
+                for (Lock l : locks) {
+                    if (!canConvert) {
+                        break;
+                    }
+                    if (l.getOperation().getTransactionId() == lockOnWait.getOperation().getTransactionId()) {
+                        if (l.getStatus() == LockStatus.WAITING) {
+                            canConvert = false;
+                            break;
+                        }
+                        if (l.getType() == LockTypes.WRITE) {
+                            for (Lock b : locks) {
+                                if (b.getType() == LockTypes.READ &&
                                     b.getOperation().getTransactionId() != l.getOperation().getTransactionId() &&
-                                    b.getOperation().getObject() == lockOnWait.getOperation().getObject()){
-                                canConvert = false;
+                                    b.getOperation().getObject() == lockOnWait.getOperation().getObject())
+                                {
+                                    canConvert = false;
+                                    break;
+                                }
                             }
                         }
-                        if (canConvert) {
-                            l.certifyLock();
-                            // tem que ver se o status não é waiting
-                        } else {
-                            waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), l.getOperation().getTransactionId());
+                    }
+                }
+                if (canConvert) {
+                    for (Lock lock : locks) {
+                        if (lock.getOperation().getTransactionId() == lockOnWait.getOperation().getTransactionId()) {
+                            lock.certifyLock();
+                            lockOnWait.setStatus(LockStatus.GRANTED);
+
+                            System.out.println("Lock granted");
+                        }
+                    }
+                    // escalonar
+                } else {
+                    for (Lock lock : locks) {
+                        if (lock.getOperation().getTransactionId() == lockOnWait.getOperation().getTransactionId()) {
+                            waitForGraph.addWaitEdge(lockOnWait.getOperation().getTransactionId(), lock.getOperation().getTransactionId());
                             lockOnWait.setStatus(LockStatus.WAITING);
                         }
                     }
                 }
-                // se tiver rl no objeto alvo de outra transação aguarda
-                // senão concede cl
-                // escalonar
             }
-
-        lockOnWait.setStatus(LockStatus.GRANTED);
+        }
         locks.add(lockOnWait);
-        System.out.println("Lock granted");
-        return 0;
+        return waitForGraph.hasCycle() ? 1 : 0;
     }
 }
 
