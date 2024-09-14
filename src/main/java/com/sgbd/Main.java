@@ -11,9 +11,8 @@ public class Main {
 
         String entrada_ai = "r4(v)r3(y)r1(y)r1(x)w2(u)r2(x)w1(y)r2(y)c1w4(u)r3(x)c4w3(u)w3(z)c3";
         //String entrada_ai = "w2(u)w3(u)w4(u)w4(x)w2(x)";
-        
-        InputReader inputReader = new InputReader();
-        List<Operation> operations = inputReader.readInput(entrada_ai);
+
+        List<Operation> operations = InputReader.readInput(entrada_ai);
         Scheduler scheduler = new Scheduler();
         System.out.println(scheduler.schedule(operations));
 

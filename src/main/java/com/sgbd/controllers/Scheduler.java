@@ -8,9 +8,9 @@ import com.sgbd.models.transactions.Transaction;
 import java.util.*;
 
 public class Scheduler {
-    private LockTable lockTable;
-    private List<Transaction> transactions;
-    private Set<Integer> transactionsIds;
+    private final LockTable lockTable;
+    private final List<Transaction> transactions;
+    private final Set<Integer> transactionsIds;
 //editado no pc do PET
     public Scheduler() {
         lockTable = new LockTable();
@@ -20,7 +20,7 @@ public class Scheduler {
 
     public int schedule(List<Operation> operations) {
         Lock currentLock;
-        Transaction newTransaction = null;
+        Transaction newTransaction;
 
         for (Operation operation : operations) {
             if (!transactionsIds.contains(operation.getTransactionId())) {

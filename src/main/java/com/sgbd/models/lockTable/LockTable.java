@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LockTable {
-    private List<Lock> locks;
+    private final List<Lock> locks;
     private WaitForGraph waitForGraph;
 
     public  LockTable(){

@@ -7,15 +7,20 @@ import com.sgbd.models.operations.Operation;
 public class Lock {
     private LockTypes type;
     private LockStatus status;
-    private Operation operation;
+    private final Operation operation;
 
     public Lock(Operation operation){
         this.operation = operation;
-        this.type = operation.getType() == OperationTypes.COMMIT ? LockTypes.CERTIFY
-                : operation.getType() == OperationTypes.READ ? LockTypes.READ
-                : operation.getType() == OperationTypes.WRITE ? LockTypes.WRITE
-                : null;
+        this.type = determineLockType(operation.getType());
         this.status = LockStatus.NOT_GRANTED;
+    }
+
+    private LockTypes determineLockType(OperationTypes operationType) {
+        return switch (operationType) {
+            case COMMIT -> LockTypes.CERTIFY;
+            case READ -> LockTypes.READ;
+            case WRITE -> LockTypes.WRITE;
+        };
     }
 
     public LockStatus getStatus() {

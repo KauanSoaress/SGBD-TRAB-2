@@ -3,14 +3,13 @@ package com.sgbd.models.operations;
 import com.sgbd.models.operationTypes.OperationTypes;
 
 import java.util.Date;
-import java.util.Optional;
 import java.util.UUID;
 
 public class Operation {
     private UUID id;
     private Date timestamp;
     private OperationTypes type;
-    private int transactionId;
+    private final int transactionId;
     private char object;
 
     public Operation(OperationTypes type, int transactionId, char object) {
