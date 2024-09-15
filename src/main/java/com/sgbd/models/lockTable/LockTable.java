@@ -54,6 +54,10 @@ public class LockTable {
         locks.add(lock);
         return true;
     }
+
+    public void releaseLocksByTransactionId(int transactionId) {
+        locks.removeIf(lock -> lock.getTransactionId() == transactionId);
+    }
 }
 
 
