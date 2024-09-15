@@ -5,6 +5,7 @@ import com.sgbd.models.lockTypes.LockTypes;
 import com.sgbd.models.locks.Lock;
 import com.sgbd.models.locks.LockStatus;
 import com.sgbd.models.operationTypes.OperationTypes;
+import com.sgbd.models.operations.Operation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,23 +24,36 @@ public class LockTable {
     //  |wl | + | + | - |
     //  |rl | + | - | - |
     //  |cl | - | - | - |
-    private int lockConflict(Lock lockOnWait, Lock lockOnGrant) {
-        if (lockOnWait.getOperation().getObject() == lockOnGrant.getOperation().getObject()) {
+//    private int lockConflict(Lock lockOnWait, Lock lockOnGrant) {
+//        if (lockOnWait.getOperation().getObject() == lockOnGrant.getOperation().getObject()) {
+//            if (lockOnWait.getType() == lockOnGrant.getType()) {
+//                if (lockOnWait.getType() == LockTypes.READ) {
+//                    return -1;
+//                } else if (lockOnWait.getType() == LockTypes.WRITE) {
+//                    return lockOnGrant.getOperation().getTransactionId();
+//                } else if (lockOnWait.getType() == LockTypes.CERTIFY) {
+//                    return lockOnGrant.getOperation().getTransactionId();
+//                }
+//            } else if (lockOnWait.getType() == LockTypes.CERTIFY || lockOnGrant.getType() == LockTypes.CERTIFY) {
+//                return lockOnGrant.getOperation().getTransactionId();
+//            } else if (lockOnWait.getType() == LockTypes.READ || lockOnGrant.getType() == LockTypes.READ) {
+//                return -1;
+//            }
+//        }
+//        return -1;
+//    }
+
+    private boolean lockConflict(Lock lockOnWait, Lock lockOnGrant) {
+        if (lockOnWait.getObject() == lockOnGrant.getObject()) {
             if (lockOnWait.getType() == lockOnGrant.getType()) {
-                if (lockOnWait.getType() == LockTypes.READ) {
-                    return -1;
-                } else if (lockOnWait.getType() == LockTypes.WRITE) {
-                    return lockOnGrant.getOperation().getTransactionId();
-                } else if (lockOnWait.getType() == LockTypes.CERTIFY) {
-                    return lockOnGrant.getOperation().getTransactionId();
-                }
+                return lockOnWait.getType() != LockTypes.READ;
             } else if (lockOnWait.getType() == LockTypes.CERTIFY || lockOnGrant.getType() == LockTypes.CERTIFY) {
-                return lockOnGrant.getOperation().getTransactionId();
+                return true;
             } else if (lockOnWait.getType() == LockTypes.READ || lockOnGrant.getType() == LockTypes.READ) {
-                return -1;
+                return false;
             }
         }
-        return -1;
+        return false;
     }
 
     public int grantLock(Lock lockOnWait) {
@@ -130,6 +144,61 @@ public class LockTable {
         }
         locks.add(lockOnWait);
         return waitForGraph.hasCycle() ? 1 : 0;
+    }
+
+    public boolean grantLock(Operation operation) {
+        Lock lock = new Lock(operation);
+
+        if (!locks.isEmpty()) {
+            for (Lock l : locks) {
+                if (lockConflict(lock, l)) {
+                    lock.setStatus(LockStatus.WAITING);
+                    locks.add(lock);
+                    waitForGraph.addWaitEdge(lock.getTransactionId(), l.getTransactionId());
+                    return false;
+                }
+            }
+        }
+        lock.setStatus(LockStatus.GRANTED);
+        locks.add(lock);
+        return true;
+    }
+
+    public void convertWriteToCertify(int transactionId){
+        List<Lock> writeLocks = new ArrayList<>();
+        List<Lock> readLocks = new ArrayList<>();
+
+        locks
+            .forEach(
+                lock -> {
+                    if (lock.getTransactionId() == transactionId && lock.getType() == LockTypes.WRITE){
+                        writeLocks.add(lock);
+                    } else if (lock.getTransactionId() == transactionId && lock.getType() == LockTypes.READ){
+                        readLocks.add(lock);
+                    }
+                }
+            );
+
+        if (!writeLocks.isEmpty() && !readLocks.isEmpty()){
+            writeLocks
+                .forEach(
+                    lock -> readLocks
+                        .forEach(
+                            lockWithoutWrite -> {
+                                waitForGraph.addWaitEdge(lock.getTransactionId(), lockWithoutWrite.getTransactionId());
+                                lock.setStatus(LockStatus.WAITING);
+                            }
+                        )
+                );
+        } else {
+            writeLocks
+                .forEach(
+                    lock -> {
+                        lock.setType(LockTypes.CERTIFY);
+                        lock.setStatus(LockStatus.GRANTED);
+                    }
+                );
+        }
     }
 }
 

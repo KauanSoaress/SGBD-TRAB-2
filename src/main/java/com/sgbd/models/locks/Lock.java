@@ -8,11 +8,15 @@ public class Lock {
     private LockTypes type;
     private LockStatus status;
     private final Operation operation;
+    private final int transactionId;
+    private final char object;
 
     public Lock(Operation operation){
         this.operation = operation;
         this.type = determineLockType(operation.getType());
         this.status = LockStatus.NOT_GRANTED;
+        this.transactionId = operation.getTransactionId();
+        this.object = operation.getObject();
     }
 
     private LockTypes determineLockType(OperationTypes operationType) {
@@ -41,5 +45,17 @@ public class Lock {
 
     public void certifyLock(){
         type = LockTypes.CERTIFY;
+    }
+
+    public void setType(LockTypes type) {
+        this.type = type;
+    }
+
+    public int getTransactionId() {
+        return transactionId;
+    }
+
+    public char getObject() {
+        return object;
     }
 }
