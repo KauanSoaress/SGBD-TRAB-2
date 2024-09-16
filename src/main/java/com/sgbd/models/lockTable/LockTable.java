@@ -55,6 +55,12 @@ public class LockTable {
         return true;
     }
 
+    public void addCommitLock(Operation operation) {
+        Lock lock = new Lock(operation);
+        lock.setStatus(LockStatus.GRANTED);
+        locks.add(lock);
+    }
+
     public boolean theresOperationWaiting(int transactionId) {
         return locks.stream().anyMatch(lock -> lock.getTransactionId() == transactionId && lock.getStatus() == LockStatus.WAITING);
     }

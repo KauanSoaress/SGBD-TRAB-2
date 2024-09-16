@@ -43,6 +43,7 @@ public class Scheduler {
         if (!lockTable.theresWriteOperation(commitOperation.getTransactionId())) {
             if (!lockTable.theresOperationWaiting(commitOperation.getTransactionId())) {
                 scheduledOperations.add(commitOperation);
+                lockTable.addCommitLock(commitOperation);
                 lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
                 reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
 
