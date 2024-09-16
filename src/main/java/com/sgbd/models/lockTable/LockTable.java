@@ -55,6 +55,14 @@ public class LockTable {
         return true;
     }
 
+    public boolean theresOperationWaiting(int transactionId) {
+        return locks.stream().anyMatch(lock -> lock.getTransactionId() == transactionId && lock.getStatus() == LockStatus.WAITING);
+    }
+
+    public boolean theresWriteOperation(int transactionId) {
+        return locks.stream().anyMatch(lock -> lock.getTransactionId() == transactionId && lock.getType() == LockTypes.WRITE);
+    }
+
     public void releaseLocksByTransactionId(int transactionId) {
         locks.removeIf(lock -> lock.getTransactionId() == transactionId);
     }

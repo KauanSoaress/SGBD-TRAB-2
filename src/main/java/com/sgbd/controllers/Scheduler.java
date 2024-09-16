@@ -37,29 +37,22 @@ public class Scheduler {
         return 0;
     }
 
-    private void nestedCommitScheduler(List<Operation> operations, Operation operation) {
+    private void nestedCommitScheduler(List<Operation> operations, Operation commit) {
         List<Number> reachedNodes = new ArrayList<>();
-        boolean theresWriteOperation = false;
-        for (Operation operationToCheck: operations) {
-            if (operationToCheck.getTransactionId().equals(operation.getTransactionId())) {
-                if (operationToCheck.getType() == OperationTypes.WRITE) {
-                    theresWriteOperation = true;
-                    break;
-                }
-            }
-        }
 
-        if (!theresWriteOperation) {
-            scheduledOperations.add(operation);
-            lockTable.releaseLocksByTransactionId(operation.getTransactionId());
-            reachedNodes = lockTable.waitForGraph.recoverReachedNodes(operation.getTransactionId());
+        if (!lockTable.theresWriteOperation(commit.getTransactionId())) {
+            if (!lockTable.theresOperationWaiting(commit.getTransactionId())) {
+                scheduledOperations.add(commit);
+                lockTable.releaseLocksByTransactionId(commit.getTransactionId());
+                reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commit.getTransactionId());
 
-            for (Operation op : operations) {
-                if (reachedNodes.contains(op.getTransactionId())) {
-                    if (op.getType() == OperationTypes.COMMIT) {
-                        nestedCommitScheduler(operations, op);
-                    } else if (lockTable.grantLock(op)) {
-                        scheduledOperations.add(op);
+                for (Operation op : operations) {
+                    if (reachedNodes.contains(op.getTransactionId())) {
+                        if (op.getType() == OperationTypes.COMMIT) {
+                            nestedCommitScheduler(operations, op);
+                        } else if (lockTable.grantLock(op)) {
+                            scheduledOperations.add(op);
+                        }
                     }
                 }
             }
