@@ -55,9 +55,15 @@ public class LockTable {
         return true;
     }
 
-    public void addCommitLock(Operation operation) {
+    public void addCommitGrant(Operation operation) {
         Lock lock = new Lock(operation);
         lock.setStatus(LockStatus.GRANTED);
+        locks.add(lock);
+    }
+
+    public void addCommitWait(Operation operation) {
+        Lock lock = new Lock(operation);
+        lock.setStatus(LockStatus.WAITING);
         locks.add(lock);
     }
 
