@@ -37,14 +37,14 @@ public class Scheduler {
         return 0;
     }
 
-    private void nestedCommitScheduler(List<Operation> operations, Operation commit) {
+    private void nestedCommitScheduler(List<Operation> operations, Operation commitOperation) {
         List<Number> reachedNodes = new ArrayList<>();
 
-        if (!lockTable.theresWriteOperation(commit.getTransactionId())) {
-            if (!lockTable.theresOperationWaiting(commit.getTransactionId())) {
-                scheduledOperations.add(commit);
-                lockTable.releaseLocksByTransactionId(commit.getTransactionId());
-                reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commit.getTransactionId());
+        if (!lockTable.theresWriteOperation(commitOperation.getTransactionId())) {
+            if (!lockTable.theresOperationWaiting(commitOperation.getTransactionId())) {
+                scheduledOperations.add(commitOperation);
+                lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
+                reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
 
                 for (Operation op : operations) {
                     if (reachedNodes.contains(op.getTransactionId())) {
