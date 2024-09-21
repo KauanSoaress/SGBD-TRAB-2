@@ -1,11 +1,15 @@
 package com.sgbd.controllers;
 
 import com.sgbd.models.lockTable.LockTable;
+import com.sgbd.models.locks.Lock;
+import com.sgbd.models.locks.LockStatus;
 import com.sgbd.models.operationTypes.OperationTypes;
 import com.sgbd.models.operations.Operation;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Scheduler {
     private final LockTable lockTable;
@@ -29,7 +33,8 @@ public class Scheduler {
     }
 
     private void nestedCommitScheduler(List<Operation> operations, Operation commitOperation) {
-        List<Number> reachedNodes = new ArrayList<>();
+        List<Integer> reachedNodes = new ArrayList<>();
+        Map<Integer, List<Lock>> locks = new HashMap<>();
 
         if (!lockTable.theresWriteOperation(commitOperation.getTransactionId())) {
             if (!lockTable.theresOperationWaiting(commitOperation.getTransactionId())) {
@@ -39,21 +44,39 @@ public class Scheduler {
                 reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
                 lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
 
-                for (Operation op : operations) {
-                    if (reachedNodes.contains(op.getTransactionId())) {
-                        if (op.getType() == OperationTypes.COMMIT) {
-                            nestedCommitScheduler(operations, op);
-                        } else if (lockTable.grantLock(op)) {
-                            scheduleRegularOperation(operations, op);
-                        }
-                    }
-                }
+//                for (Operation op : operations) {
+//                    if (reachedNodes.contains(op.getTransactionId())) {
+//                        if (op.getType() == OperationTypes.COMMIT) {
+//                            nestedCommitScheduler(operations, op);
+//                        } else if (lockTable.grantLock(op)) {
+//                            scheduleRegularOperation(operations, op);
+//                        }
+//                    }
+//                }
+
+                reachedNodes.forEach(
+                        tid -> locks.put(tid, lockTable.locks.stream()
+                                .filter(l -> l.getTransactionId().equals(tid) && l.getStatus().equals(LockStatus.WAITING))
+                                .toList()
+                        )
+                );
+
+                reachedNodes.forEach(
+                        tid -> locks.get(tid).forEach(
+                                lock -> {
+                                    if (lockTable.canGrantLock(lock)) {
+                                        lock.setStatus(LockStatus.GRANTED);
+                                    }
+                                }
+                        )
+                );
+
             } else {
                 lockTable.addCommitWait(commitOperation);
             }
         }
         else {
-            if (convertWriteToCertify(commitOperation.getTransactionId())) {
+            if (lockTable.convertWriteToCertify(commitOperation.getTransactionId())) {
                 scheduleRegularOperation(operations, commitOperation);
                 lockTable.addCommitGrant(commitOperation);
                 lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());

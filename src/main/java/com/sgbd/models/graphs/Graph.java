@@ -35,8 +35,8 @@ abstract class Graph {
         return false;
     }
 
-    public List<Number> recoverReachedNodes(int node) {
-        List<Number> reachedNodes = new ArrayList<>();
+    public List<Integer> recoverReachedNodes(int node) {
+        List<Integer> reachedNodes = new ArrayList<>();
 
         reachedNodes.addAll(adjacencyList.get(node));
 

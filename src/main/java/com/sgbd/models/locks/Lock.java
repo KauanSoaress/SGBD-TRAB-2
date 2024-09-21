@@ -8,7 +8,7 @@ public class Lock {
     private LockTypes type;
     private LockStatus status;
     private final Operation operation;
-    private final int transactionId;
+    private final Integer transactionId;
     private final char object;
 
     public Lock(Operation operation){
@@ -51,7 +51,7 @@ public class Lock {
         this.type = type;
     }
 
-    public int getTransactionId() {
+    public Integer getTransactionId() {
         return transactionId;
     }
 
