@@ -115,7 +115,7 @@ public class LockTable {
                 )
                 .toList();
 
-        if (!sameTransactionLocks.getFirst().equals(currentLock)) {
+        if (!sameTransactionLocks.get(0).equals(currentLock)) {
             return false;
         }
 

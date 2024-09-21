@@ -17,12 +17,13 @@ public class Scheduler {
     }
 
     public int schedule(List<Operation> operations) {
+        List<Operation> operationsCopy = new ArrayList<>(operations);
         for (Operation operation : operations) {
             if (operation.getType() == OperationTypes.COMMIT) {
-                nestedCommitScheduler(operations, operation);
+                nestedCommitScheduler(operationsCopy, operation);
             } else {
                 if (lockTable.grantLock(operation)) {
-                    scheduleRegularOperation(operations, operation);
+                    scheduleRegularOperation(operationsCopy, operation);
                 }
             }
         }
