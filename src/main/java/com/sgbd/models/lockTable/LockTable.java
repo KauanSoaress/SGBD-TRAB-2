@@ -4,13 +4,17 @@ import com.sgbd.models.graphs.WaitForGraph;
 import com.sgbd.models.lockTypes.LockTypes;
 import com.sgbd.models.locks.Lock;
 import com.sgbd.models.locks.LockStatus;
+import com.sgbd.models.operationTypes.OperationTypes;
 import com.sgbd.models.operations.Operation;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class LockTable {
-    private final List<Lock> locks;
+    public final List<Lock> locks;
     public WaitForGraph waitForGraph;
 
     private static final boolean[][] conflictTable = {
@@ -63,13 +67,14 @@ public class LockTable {
 
     public boolean grantLock(Operation operation) {
         Lock lock = new Lock(operation);
+        List<Lock> grantedLocks = locks.stream().filter(lk -> lk.getStatus().equals(LockStatus.GRANTED)).toList();
 
         if (!locks.isEmpty()) {
-            for (Lock l : locks) {
+            for (Lock l : grantedLocks) {
                 if (lockConflict(lock, l)) {
                     lock.setStatus(LockStatus.WAITING);
                     locks.add(lock);
-                    waitForGraph.addWaitEdge(lock.getTransactionId(), l.getTransactionId());
+                    waitForGraph.addWaitEdge(l.getTransactionId(), lock.getTransactionId());
                     return false;
                 }
             }
@@ -78,6 +83,72 @@ public class LockTable {
         locks.add(lock);
         return true;
     }
+
+    public void addCommitGrant(Operation operation) {
+        Lock lock = new Lock(operation);
+        lock.setStatus(LockStatus.GRANTED);
+        locks.add(lock);
+    }
+
+    public void addCommitWait(Operation operation) {
+        Lock lock = new Lock(operation);
+        lock.setStatus(LockStatus.WAITING);
+        locks.add(lock);
+    }
+
+    public boolean theresOperationWaiting(int transactionId) {
+        return locks.stream().anyMatch(lock -> lock.getTransactionId() == transactionId && lock.getStatus() == LockStatus.WAITING);
+    }
+
+    public boolean theresWriteOperation(int transactionId) {
+        return locks.stream().anyMatch(lock -> lock.getTransactionId() == transactionId && lock.getType() == LockTypes.WRITE);
+    }
+
+    public void releaseLocksByTransactionId(int transactionId) {
+        locks.removeIf(lock -> lock.getTransactionId() == transactionId);
+    }
+
+    public boolean convertWriteToCertify(int transactionId) {
+        if (canConvertWriteToCertify(transactionId)) {
+            locks.stream()
+                    .filter(lk -> lk.getType().equals(LockTypes.WRITE))
+                    .forEach(lk -> lk.setType(LockTypes.CERTIFY));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean canConvertWriteToCertify(Integer transactionId) {
+        Set<Object> writeLockedObjects = locks.stream()
+                .filter(lock -> lock.getType().equals(LockTypes.WRITE) && lock.getTransactionId().equals(transactionId))
+                .map(Lock::getObject)
+                .collect(Collectors.toSet());
+
+        return locks.stream()
+                .filter(lock -> lock.getType().equals(LockTypes.READ) && !lock.getTransactionId().equals(transactionId))
+                .noneMatch(lock -> writeLockedObjects.contains(lock.getObject()));
+    }
+
+    public boolean canGrantLock(Lock currentLock) {
+        List<Lock> grantedLocks = locks.stream().filter(lk -> lk.getStatus().equals(LockStatus.GRANTED)).toList();
+        List<Lock> sameTransactionLocks = locks
+                .stream()
+                .filter(lock -> lock.getTransactionId()
+                        .equals(currentLock.getTransactionId()) &&
+                        lock.getStatus().equals(LockStatus.WAITING)
+                )
+                .toList();
+
+        if (!sameTransactionLocks.get(0).equals(currentLock)) {
+            return false;
+        }
+
+        for (Lock lock: grantedLocks) {
+            if (lockConflict(currentLock, lock)) {
+                waitForGraph.addWaitEdge(lock.getTransactionId(), currentLock.getTransactionId());
+                return false;
+            }
+        }
+        return true;
+    }
 }
-
-
