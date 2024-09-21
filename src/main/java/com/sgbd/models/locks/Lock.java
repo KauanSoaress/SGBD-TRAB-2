@@ -19,9 +19,18 @@ public class Lock {
         this.object = operation.getObject();
     }
 
+    public Lock(Operation operation, LockTypes type){
+        this.operation = operation;
+        this.type = type;
+        this.status = LockStatus.NOT_GRANTED;
+        this.transactionId = operation.getTransactionId();
+        this.object = operation.getObject();
+    }
+
     private LockTypes determineLockType(OperationTypes operationType) {
         return switch (operationType) {
             case COMMIT -> LockTypes.CERTIFY;
+            case UPDATE -> LockTypes.UPDATE;
             case READ -> LockTypes.READ;
             case WRITE -> LockTypes.WRITE;
         };

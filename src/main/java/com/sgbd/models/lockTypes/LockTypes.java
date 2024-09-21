@@ -3,5 +3,9 @@ package com.sgbd.models.lockTypes;
 public enum LockTypes {
     READ,
     WRITE,
-    CERTIFY
+    CERTIFY,
+    UPDATE,
+    READ_INTENT,
+    WRITE_INTENT,
+    UPDATE_INTENT,
 }
