@@ -6,14 +6,11 @@ import com.sgbd.models.locks.LockStatus;
 import com.sgbd.models.operationTypes.OperationTypes;
 import com.sgbd.models.operations.Operation;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Scheduler {
     private final LockTable lockTable;
-    private List<Operation> scheduledOperations = new ArrayList<>();
+    private final List<Operation> scheduledOperations = new ArrayList<>();
 
     public Scheduler() {
         lockTable = new LockTable();
@@ -51,30 +48,25 @@ public class Scheduler {
     }
 
     private void scheduleCommitOperation(List<Operation> operations, Operation commitOperation, Map<Integer, List<Lock>> locks) {
-        List<Integer> reachedNodes;
         scheduleRegularOperation(operations, commitOperation);
         lockTable.addCommitGrant(commitOperation);
         lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
-        reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
+
+        List<Integer> reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
         lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
 
-        reachedNodes.forEach(
-            tid -> locks.put(
-                tid, lockTable.locks.stream()
-                    .filter(l -> l.getTransactionId().equals(tid) && l.getStatus().equals(LockStatus.WAITING))
-                    .toList()
-            )
-        );
-
-        reachedNodes.forEach(
-            tid -> locks.get(tid).forEach(
-                lock -> {
-                    if (lockTable.canGrantLock(lock)) {
-                        lock.setStatus(LockStatus.GRANTED);
-                    }
-                }
-            )
-        );
+        Optional.ofNullable(reachedNodes)
+            .ifPresent(nodes -> nodes.forEach(transactionId -> {
+                List<Lock> waitingLocks = lockTable.locks.stream()
+                    .filter(lock -> lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
+                    .peek(lock -> {
+                        if (lockTable.canGrantLock(lock)) {
+                            lock.setStatus(LockStatus.GRANTED);
+                        }
+                    })
+                    .toList();
+                locks.put(transactionId, waitingLocks);
+            }));
     }
 
     public void scheduleRegularOperation(List<Operation> operations, Operation operationToSchedule) {

@@ -36,11 +36,7 @@ abstract class Graph {
     }
 
     public List<Integer> recoverReachedNodes(int node) {
-        List<Integer> reachedNodes = new ArrayList<>();
-
-        reachedNodes.addAll(adjacencyList.get(node));
-
-        return reachedNodes;
+        return new ArrayList<>(adjacencyList.get(node));
     }
 
     private boolean hasCycleUtil(int node, Set<Integer> visited, Set<Integer> recStack) {
