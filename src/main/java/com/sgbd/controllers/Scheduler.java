@@ -45,6 +45,7 @@ public class Scheduler {
                 scheduledOperations.add(commitOperation);
                 lockTable.addCommitGrant(commitOperation);
                 lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
+                // Remover do grafo
                 reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
 
                 for (Operation op : operations) {
@@ -61,7 +62,25 @@ public class Scheduler {
             }
         }
         else {
-            // Adicionar esquema para conversão para certify lock, caso seja possível, se não, aguardar
+            if (convertWriteToCertify(commitOperation.getTransactionId())) {
+                scheduledOperations.add(commitOperation);
+                lockTable.addCommitGrant(commitOperation);
+                lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
+                // Remover do grafo
+                reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
+
+                for (Operation op : operations) {
+                    if (reachedNodes.contains(op.getTransactionId())) {
+                        if (op.getType() == OperationTypes.COMMIT) {
+                            nestedCommitScheduler(operations, op);
+                        } else if (lockTable.grantLock(op)) {
+                            scheduledOperations.add(op);
+                        }
+                    }
+                }
+            } else {
+                lockTable.addCommitWait(commitOperation);
+            }
         }
     }
 }
