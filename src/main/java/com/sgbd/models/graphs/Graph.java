@@ -19,6 +19,10 @@ abstract class Graph {
         adjacencyList.get(fromNode).add(toNode);
     }
 
+    public void removeAllEdges(int fromNode) {
+        adjacencyList.remove(fromNode);
+    }
+
     public boolean hasCycle() {
         Set<Integer> visited = new HashSet<>();
         Set<Integer> recStack = new HashSet<>();

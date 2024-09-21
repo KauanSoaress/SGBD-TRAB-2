@@ -19,20 +19,11 @@ public class Scheduler {
         for (Operation operation : operations) {
             if (operation.getType() == OperationTypes.COMMIT) {
                 nestedCommitScheduler(operations, operation);
+            } else {
+                if (lockTable.grantLock(operation)) {
+                    scheduleRegularOperation(operations, operation);
+                }
             }
-
-            else if (lockTable.grantLock(operation)) {
-
-            }
-//            if (lockTable.grantLock(operation)){
-//                if (operation.getType() == OperationTypes.COMMIT) {
-//
-//                } else {
-//                    scheduledOperations.add(operation);
-//                }
-//            } else {
-//            // lockTable.waitForGraph.hasCycle();
-//            }
         }
         return 0;
     }
@@ -42,18 +33,18 @@ public class Scheduler {
 
         if (!lockTable.theresWriteOperation(commitOperation.getTransactionId())) {
             if (!lockTable.theresOperationWaiting(commitOperation.getTransactionId())) {
-                scheduledOperations.add(commitOperation);
+                scheduleRegularOperation(operations, commitOperation);
                 lockTable.addCommitGrant(commitOperation);
                 lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
-                // Remover do grafo
                 reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
+                lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
 
                 for (Operation op : operations) {
                     if (reachedNodes.contains(op.getTransactionId())) {
                         if (op.getType() == OperationTypes.COMMIT) {
                             nestedCommitScheduler(operations, op);
                         } else if (lockTable.grantLock(op)) {
-                            scheduledOperations.add(op);
+                            scheduleRegularOperation(operations, op);
                         }
                     }
                 }
@@ -63,18 +54,18 @@ public class Scheduler {
         }
         else {
             if (convertWriteToCertify(commitOperation.getTransactionId())) {
-                scheduledOperations.add(commitOperation);
+                scheduleRegularOperation(operations, commitOperation);
                 lockTable.addCommitGrant(commitOperation);
                 lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
-                // Remover do grafo
                 reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
+                lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
 
                 for (Operation op : operations) {
                     if (reachedNodes.contains(op.getTransactionId())) {
                         if (op.getType() == OperationTypes.COMMIT) {
                             nestedCommitScheduler(operations, op);
                         } else if (lockTable.grantLock(op)) {
-                            scheduledOperations.add(op);
+                            scheduleRegularOperation(operations, op);
                         }
                     }
                 }
@@ -82,5 +73,10 @@ public class Scheduler {
                 lockTable.addCommitWait(commitOperation);
             }
         }
+    }
+
+    public void scheduleRegularOperation(List<Operation> operations, Operation operationToSchedule) {
+        scheduledOperations.add(operationToSchedule);
+        operations.remove(operationToSchedule);
     }
 }
