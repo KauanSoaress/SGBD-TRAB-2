@@ -1,5 +1,6 @@
 package com.sgbd.models.locks;
 
+import com.sgbd.models.granularity.Granularity;
 import com.sgbd.models.lockTypes.LockTypes;
 import com.sgbd.models.operationTypes.OperationTypes;
 import com.sgbd.models.operations.Operation;
@@ -10,21 +11,24 @@ public class Lock {
     private final Operation operation;
     private final Integer transactionId;
     private final char object;
+    private final Granularity granularity;
 
-    public Lock(Operation operation){
+    public Lock(Operation operation, Granularity granularity){
         this.operation = operation;
         this.type = determineLockType(operation.getType());
         this.status = LockStatus.NOT_GRANTED;
         this.transactionId = operation.getTransactionId();
         this.object = operation.getObject();
+        this.granularity = granularity;
     }
 
-    public Lock(Operation operation, LockTypes type){
+    public Lock(Operation operation, LockTypes type, Granularity granularity){
         this.operation = operation;
         this.type = type;
         this.status = LockStatus.NOT_GRANTED;
         this.transactionId = operation.getTransactionId();
         this.object = operation.getObject();
+        this.granularity = granularity;
     }
 
     private LockTypes determineLockType(OperationTypes operationType) {

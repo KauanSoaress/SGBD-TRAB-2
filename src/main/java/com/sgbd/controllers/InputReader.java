@@ -49,6 +49,8 @@ public class InputReader {
                 currentOperation = new Operation(OperationTypes.WRITE, Integer.parseInt(operation.substring(1, 2)), operation.charAt(3));
             } else if (operation.charAt(0) == 'c') {
                 currentOperation = new Operation(OperationTypes.COMMIT, Integer.parseInt(operation.substring(1, 2)));
+            } else if (operation.charAt(0) == 'u') {
+                currentOperation = new Operation(OperationTypes.UPDATE, Integer.parseInt(operation.substring(1, 2)), operation.charAt(3));
             }
             operationsList.add(currentOperation);
             currentOperation = null;

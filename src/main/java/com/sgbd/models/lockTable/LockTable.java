@@ -1,31 +1,34 @@
 package com.sgbd.models.lockTable;
 
+import com.sgbd.models.granularity.Row;
+import com.sgbd.models.granularity.Table;
 import com.sgbd.models.graphs.WaitForGraph;
 import com.sgbd.models.lockTypes.LockTypes;
 import com.sgbd.models.locks.Lock;
 import com.sgbd.models.locks.LockStatus;
-import com.sgbd.models.operationTypes.OperationTypes;
 import com.sgbd.models.operations.Operation;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class LockTable {
     public final List<Lock> locks;
     public WaitForGraph waitForGraph;
+    public Table table = new Table(UUID.randomUUID());
 
     private static final boolean[][] conflictTable = {
-            // Granted Locks:       rl       wl       ul       cl       irl      iwl      iul
-            /* Requested rl */    { false,  false,  true,   true,   false,  true,   true },
-            /* Requested wl */    { false,  true,   true,   true,   true,   true,   true },
-            /* Requested ul */    { false,  true,   true,   true,   false,  true,   true },
-            /* Requested cl */    { true,   true,   true,   true,   true,   true,   true },
-            /* Requested irl */   { false,  true,   true,   true,   false,  false,  false },
-            /* Requested iwl */   { true,   true,   true,   true,   false,  false,  false },
-            /* Requested iul */   { false,  true,   true,   true,   false,  false,  false }
+            // Granted Locks:       rl       wl     ul      cl      irl     iwl     iul   icl
+            /* Requested rl */    { false,  false,  true,   true,   false,  true,   true, true },
+            /* Requested wl */    { false,  true,   true,   true,   true,   true,   true, true },
+            /* Requested ul */    { false,  true,   true,   true,   false,  true,   true, true },
+            /* Requested cl */    { true,   true,   true,   true,   true,   true,   true, true },
+            /* Requested irl */   { false,  true,   true,   true,   false,  false,  false, false },
+            /* Requested iwl */   { true,   true,   true,   true,   false,  false,  false, false },
+            /* Requested iul */   { false,  true,   true,   true,   false,  false,  false, false },
+            /* Requested icl */   { true,   true,   true,   true,   false,  false,  false, false }
     };
 
     public  LockTable(){
@@ -42,6 +45,7 @@ public class LockTable {
             case READ_INTENT -> 4;
             case WRITE_INTENT -> 5;
             case UPDATE_INTENT -> 6;
+            case CERTIFY_INTENT -> 7;
             default -> throw new IllegalArgumentException("Tipo de bloqueio desconhecido: " + type);
         };
     }
@@ -66,6 +70,12 @@ public class LockTable {
     }
 
     public boolean grantLock(Operation operation) {
+        Row row = new Row(operation.getObject());
+        table.getPages().getRows().add(row);
+
+//        Lock lockTable = new Lock(operation, table);
+//      IMPLEMENTAR A LÓGICA DE CONCEDER OS BLOQUEIOS INTENCIONAIS PARA CIMA
+
         Lock lock = new Lock(operation);
         List<Lock> grantedLocks = locks.stream().filter(lk -> lk.getStatus().equals(LockStatus.GRANTED)).toList();
 

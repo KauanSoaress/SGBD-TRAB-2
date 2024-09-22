@@ -30,6 +30,9 @@ public class Scheduler {
                 nestedCommitScheduler(operationsCopy, operation);
             } else {
                 if (lockTable.grantLock(operation)) {
+//                    if (operation.getType().equals(OperationTypes.UPDATE)){
+//
+//                    }
                     scheduleRegularOperation(operationsCopy, operation);
                 }
             }
