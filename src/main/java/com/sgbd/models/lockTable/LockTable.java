@@ -233,7 +233,7 @@ public class LockTable {
                 )
                 .toList();
 
-        if (!sameTransactionLocks.get(0).equals(currentLock)) {
+        if (!sameTransactionLocks.isEmpty() && !sameTransactionLocks.get(0).equals(currentLock)) {
             return false;
         }
 

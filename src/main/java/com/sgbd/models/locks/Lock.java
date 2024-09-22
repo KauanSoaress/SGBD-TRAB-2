@@ -23,7 +23,7 @@ public class Lock {
         this.transactionId = operation.getTransactionId();
         this.object = operation.getObject();
         this.granularity = granularity;
-        this.granularityType = granularity.granularityType;
+        this.granularityType = granularity.getGranularityType();
     }
 
     public Lock(Operation operation, LockTypes type, Granularity granularity){
@@ -33,7 +33,7 @@ public class Lock {
         this.transactionId = operation.getTransactionId();
         this.object = operation.getObject();
         this.granularity = granularity;
-        this.granularityType = granularity.granularityType;
+        this.granularityType = granularity.getGranularityType();
     }
 
     private LockTypes determineLockType(OperationTypes operationType) {
