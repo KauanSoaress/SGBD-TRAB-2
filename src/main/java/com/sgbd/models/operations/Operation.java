@@ -11,6 +11,7 @@ public class Operation {
     private OperationTypes type;
     private final int transactionId;
     private char object;
+    private OperationStatus status;
 
     public Operation(OperationTypes type, int transactionId, char object) {
         this.id = UUID.randomUUID();
@@ -18,6 +19,7 @@ public class Operation {
         this.type = type;
         this.transactionId = transactionId;
         this.object = object;
+        this.status = OperationStatus.NONEXECUTED;
     }
 
     public Operation(OperationTypes operationTypes, int transactionId) {
@@ -25,6 +27,7 @@ public class Operation {
         this.timestamp = new Date();
         this.type = operationTypes;
         this.transactionId = transactionId;
+        this.status = OperationStatus.NONEXECUTED;
     }
 
     public char getObject() {
@@ -61,5 +64,13 @@ public class Operation {
 
     public void setType(OperationTypes type) {
         this.type = type;
+    }
+
+    public OperationStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(OperationStatus status) {
+        this.status = status;
     }
 }

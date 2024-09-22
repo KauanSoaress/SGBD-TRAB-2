@@ -1,5 +1,6 @@
 package com.sgbd.models.granularity;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,6 +11,7 @@ public class Page extends Granularity {
 
     public Page(UUID uuid) {
         id = uuid;
+        rows = new ArrayList<Row>();
     }
 
     public UUID getId() {

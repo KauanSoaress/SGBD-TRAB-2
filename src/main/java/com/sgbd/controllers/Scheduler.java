@@ -6,6 +6,7 @@ import com.sgbd.models.locks.Lock;
 import com.sgbd.models.locks.LockStatus;
 import com.sgbd.models.operationTypes.OperationTypes;
 import com.sgbd.models.operations.Operation;
+import com.sgbd.models.operations.OperationStatus;
 
 import java.util.*;
 
@@ -14,29 +15,21 @@ public class Scheduler {
     private List<Operation> scheduledOperations = new ArrayList<>();
     private GranularityType granularityType = GranularityType.ROW;
 
-    public Scheduler() {
-        lockTable = new LockTable();
-    }
-
-    public Scheduler(GranularityType granularityType) {
-        lockTable = new LockTable();
-        this.granularityType = granularityType;
+    public Scheduler(List<Operation> operations) {
+        lockTable = new LockTable(operations, scheduledOperations);
     }
 
     public int schedule(List<Operation> operations) {
-        List<Operation> operationsCopy = new ArrayList<>(operations);
         for (Operation operation : operations) {
             if (operation.getType() == OperationTypes.COMMIT) {
-                nestedCommitScheduler(operationsCopy, operation);
+                nestedCommitScheduler(operations, operation);
             } else {
                 if (lockTable.grantLock(operation)) {
-//                    if (operation.getType().equals(OperationTypes.UPDATE)){
-//
-//                    }
-                    scheduleRegularOperation(operationsCopy, operation);
+                    scheduleRegularOperation(operations, operation);
                 }
             }
         }
+
         return 0;
     }
 
@@ -82,6 +75,6 @@ public class Scheduler {
 
     public void scheduleRegularOperation(List<Operation> operations, Operation operationToSchedule) {
         scheduledOperations.add(operationToSchedule);
-        operations.remove(operationToSchedule);
+        operationToSchedule.setStatus(OperationStatus.EXECUTED);
     }
 }

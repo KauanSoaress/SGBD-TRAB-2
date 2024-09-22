@@ -13,7 +13,7 @@ public class Main {
         //String entrada_ai = "w2(u)w3(u)w4(u)w4(x)w2(x)";
 
         List<Operation> operations = InputReader.readInput(entrada_ai);
-        Scheduler scheduler = new Scheduler();
+        Scheduler scheduler = new Scheduler(operations);
         System.out.println(scheduler.schedule(operations));
 
     }

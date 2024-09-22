@@ -21,6 +21,10 @@ abstract class Graph {
 
     public void removeAllEdges(int fromNode) {
         adjacencyList.remove(fromNode);
+
+        for (Integer node : adjacencyList.keySet()) {
+            adjacencyList.get(node).remove(fromNode);
+        }
     }
 
     public boolean hasCycle() {

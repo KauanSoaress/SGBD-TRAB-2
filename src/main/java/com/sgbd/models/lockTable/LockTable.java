@@ -8,17 +8,17 @@ import com.sgbd.models.lockTypes.LockTypes;
 import com.sgbd.models.locks.Lock;
 import com.sgbd.models.locks.LockStatus;
 import com.sgbd.models.operations.Operation;
+import com.sgbd.models.operations.OperationStatus;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class LockTable {
     public final List<Lock> locks;
     public WaitForGraph waitForGraph;
     public Table table = new Table(UUID.randomUUID());
+    public List<Operation> operations;
+    public List<Operation> scheduledOperations;
 
     private static final boolean[][] conflictTable = {
             // Granted Locks:       rl       wl     ul      cl      irl     iwl     iul   icl
@@ -32,9 +32,11 @@ public class LockTable {
             /* Requested icl */   { true,   true,   true,   true,   false,  false,  false, false }
     };
 
-    public  LockTable(){
+    public LockTable(List<Operation> operations, List<Operation> scheduledOperations) {
         this.locks = new ArrayList<>();
         this.waitForGraph = new WaitForGraph();
+        this.operations = operations;
+        this.scheduledOperations = scheduledOperations;
     }
 
     private int getLockTypeIndex(LockTypes type) {
@@ -99,7 +101,7 @@ public class LockTable {
             if (lockConflict(lock, pageLock)) {
                 lock.setStatus(LockStatus.WAITING);
                 locks.add(lock);
-                waitForGraph.addWaitEdge(pageLock.getTransactionId(), lock.getTransactionId());
+                addEdgeAndVerifyDeadlock(pageLock.getTransactionId(), lock.getTransactionId());
                 return false;
             }
         }
@@ -112,7 +114,7 @@ public class LockTable {
         if (currentRowLock != null && lockConflict(lock, currentRowLock)) {
             lock.setStatus(LockStatus.WAITING);
             locks.add(lock);
-            waitForGraph.addWaitEdge(currentRowLock.getTransactionId(), lock.getTransactionId());
+            addEdgeAndVerifyDeadlock(currentRowLock.getTransactionId(), lock.getTransactionId());
             return false;
         }
 
@@ -138,6 +140,43 @@ public class LockTable {
             case COMMIT -> LockTypes.CERTIFY_INTENT;
         };
     }
+
+    public void addEdgeAndVerifyDeadlock(int fromNode, int toNode) {
+        waitForGraph.addWaitEdge(fromNode, toNode);
+        if (waitForGraph.hasCycle()) {
+            Lock firstFromTransation = locks.stream().filter(lock -> lock.getTransactionId() == fromNode).findFirst().get();
+            Lock firstToTransation = locks.stream().filter(lock -> lock.getTransactionId() == toNode).findFirst().get();
+
+            if (firstFromTransation.getOperation().getTimestamp().after(firstToTransation.getOperation().getTimestamp())) {
+                abortTransaction(fromNode);
+            } else {
+                abortTransaction(toNode);
+            }
+        }
+    }
+
+    public void abortTransaction(int transactionId) {
+        locks.removeIf(lock -> lock.getTransactionId() == transactionId);
+        scheduledOperations.removeIf(operation -> operation.getTransactionId() == transactionId);
+        operations.forEach(op -> op.setStatus(OperationStatus.ABORTED));
+
+        List<Integer> reachedNodes = waitForGraph.recoverReachedNodes(transactionId);
+
+        waitForGraph.removeAllEdges(transactionId);
+
+
+        Optional.ofNullable(reachedNodes)
+            .ifPresent(nodes -> nodes.forEach(tId -> {
+                locks.stream()
+                    .filter(lock -> lock.getTransactionId().equals(tId) && lock.getStatus().equals(LockStatus.WAITING))
+                    .forEach(lock -> {
+                        if (canGrantLock(lock)) {
+                            lock.setStatus(LockStatus.GRANTED);
+                        }
+                    });
+            }));
+    }
+
 
     public void addCommitGrant(Operation operation) {
         Lock lock = new Lock(operation, new Row('-'));
@@ -200,7 +239,7 @@ public class LockTable {
 
         for (Lock lock: grantedLocks) {
             if (lockConflict(currentLock, lock)) {
-                waitForGraph.addWaitEdge(lock.getTransactionId(), currentLock.getTransactionId());
+                addEdgeAndVerifyDeadlock(lock.getTransactionId(), currentLock.getTransactionId());
                 return false;
             }
         }
