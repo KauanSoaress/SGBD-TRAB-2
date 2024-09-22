@@ -1,5 +1,6 @@
 package com.sgbd.models.lockTable;
 
+import com.sgbd.models.granularity.GranularityType;
 import com.sgbd.models.granularity.Row;
 import com.sgbd.models.granularity.Table;
 import com.sgbd.models.graphs.WaitForGraph;
@@ -69,39 +70,83 @@ public class LockTable {
         return false;
     }
 
+    private Row findRow(char object) {
+        Row objectRow = table
+                .getPages()
+                .getRows()
+                .stream()
+                .filter(row -> row.getObject() == object)
+                .findFirst()
+                .orElse(null);
+
+        if (objectRow == null) {
+            objectRow = new Row(object);
+            table.getPages().getRows().add(objectRow);
+        }
+
+        return objectRow;
+    }
+
     public boolean grantLock(Operation operation) {
-        Row row = new Row(operation.getObject());
-        table.getPages().getRows().add(row);
+        Row row = findRow(operation.getObject());
+        Lock lock = new Lock(operation, row);
 
-//        Lock lockTable = new Lock(operation, table);
-//      IMPLEMENTAR A LÓGICA DE CONCEDER OS BLOQUEIOS INTENCIONAIS PARA CIMA
+        List<Lock> pageLocks = locks.stream()
+            .filter(lk -> lk.getGranularityType().equals(GranularityType.PAGE))
+            .toList();
 
-        Lock lock = new Lock(operation);
-        List<Lock> grantedLocks = locks.stream().filter(lk -> lk.getStatus().equals(LockStatus.GRANTED)).toList();
-
-        if (!locks.isEmpty()) {
-            for (Lock l : grantedLocks) {
-                if (lockConflict(lock, l)) {
-                    lock.setStatus(LockStatus.WAITING);
-                    locks.add(lock);
-                    waitForGraph.addWaitEdge(l.getTransactionId(), lock.getTransactionId());
-                    return false;
-                }
+        for (Lock pageLock : pageLocks) {
+            if (lockConflict(lock, pageLock)) {
+                lock.setStatus(LockStatus.WAITING);
+                locks.add(lock);
+                waitForGraph.addWaitEdge(pageLock.getTransactionId(), lock.getTransactionId());
+                return false;
             }
         }
+
+        Lock currentRowLock = locks.stream()
+            .filter(lk -> lk.getGranularity().equals(row) && lk.getStatus().equals(LockStatus.GRANTED))
+            .findFirst()
+            .orElse(null);
+
+        if (currentRowLock != null && lockConflict(lock, currentRowLock)) {
+            lock.setStatus(LockStatus.WAITING);
+            locks.add(lock);
+            waitForGraph.addWaitEdge(currentRowLock.getTransactionId(), lock.getTransactionId());
+            return false;
+        }
+
+        Lock tableIntentLock = new Lock(operation, determineLockType(operation), table);
+        Lock pageIntentLock = new Lock(operation, determineLockType(operation), table.getPages());
+
+        tableIntentLock.setStatus(LockStatus.GRANTED);
+        pageIntentLock.setStatus(LockStatus.GRANTED);
+
+        locks.add(tableIntentLock);
+        locks.add(pageIntentLock);
+
         lock.setStatus(LockStatus.GRANTED);
         locks.add(lock);
         return true;
     }
 
+    private LockTypes determineLockType(Operation operation) {
+        return switch (operation.getType()) {
+            case WRITE -> LockTypes.WRITE_INTENT;
+            case READ -> LockTypes.READ_INTENT;
+            case UPDATE -> LockTypes.UPDATE_INTENT;
+            case COMMIT -> LockTypes.CERTIFY_INTENT;
+        };
+    }
+
     public void addCommitGrant(Operation operation) {
-        Lock lock = new Lock(operation);
+        Lock lock = new Lock(operation, new Row('-'));
         lock.setStatus(LockStatus.GRANTED);
         locks.add(lock);
     }
 
     public void addCommitWait(Operation operation) {
-        Lock lock = new Lock(operation);
+        Lock lock = new Lock(operation, new Row('-'));
         lock.setStatus(LockStatus.WAITING);
         locks.add(lock);
     }

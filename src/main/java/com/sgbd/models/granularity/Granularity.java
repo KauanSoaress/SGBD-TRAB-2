@@ -1,4 +1,5 @@
 package com.sgbd.models.granularity;
 
-public interface Granularity {
+public abstract class Granularity {
+    public GranularityType granularityType;
 }
