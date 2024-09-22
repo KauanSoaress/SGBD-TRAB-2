@@ -61,14 +61,14 @@ public class Scheduler {
 
         Optional.ofNullable(reachedNodes)
             .ifPresent(nodes -> nodes.forEach(transactionId -> {
-                List<Lock> waitingLocks = lockTable.locks.stream()
-                    .filter(lock -> lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
+                List<Lock> lockListCopy = new ArrayList<>(lockTable.locks);
+                List<Lock> waitingLocks = lockListCopy.stream()
+                    .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
                     .peek(lock -> {
                         if (lockTable.canGrantLock(lock)) {
                             lock.setStatus(LockStatus.GRANTED);
                         }
-                    })
-                    .toList();
+                    }).toList();
                 locks.put(transactionId, waitingLocks);
             }));
     }
