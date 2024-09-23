@@ -21,60 +21,105 @@ public class Scheduler {
 
     public int schedule(List<Operation> operations) {
         for (Operation operation : operations) {
-            if (operation.getType() == OperationTypes.COMMIT) {
-                nestedCommitScheduler(operations, operation);
-            } else {
-                if (lockTable.grantLock(operation)) {
-                    scheduleRegularOperation(operations, operation);
+            System.out.println("=====================================");
+            System.out.println("Transação da operação: " + operation.getTransactionId() + " \ntipo da op: " + operation.getType() + " \nobjeto da op " + operation.getObject());
+            if (lockTable.abortedTransactions.isEmpty() || !lockTable.abortedTransactions.contains(operation.getTransactionId())) {
+                if (operation.getType() == OperationTypes.COMMIT) {
+                    nestedCommitScheduler(operations, operation);
+                    System.out.println("Bloqueio concedido para a operação: " + operation.getTransactionId() + " " + operation.getType() + " " + operation.getObject());
+                } else {
+                    if (lockTable.grantLock(operation)) {
+                        scheduleRegularOperation(operations, operation);
+                        System.out.println("Bloqueio concedido para a operação: " + operation.getTransactionId() + " " + operation.getType() + " " + operation.getObject());
+                    }
                 }
             }
+            System.out.println("=====================================");
         }
 
         return 0;
     }
 
     private void nestedCommitScheduler(List<Operation> operations, Operation commitOperation) {
-        Map<Integer, List<Lock>> locks = new HashMap<>();
-
+        /*
+            * Se não houver bloqueio de escrita para o commit, e não houver bloqueio em espera para o commit,
+            * então o commit pode ser escalonado.
+            * Se houver bloqueio de escrita para o commit, e for possível converter o bloqueio de escrita em certify,
+            * então o commit pode ser escalonado.
+            * Caso contrário, o commit deve ser colocado em espera.
+         */
         if (!lockTable.theresWriteOperation(commitOperation.getTransactionId())) {
             if (!lockTable.theresOperationWaiting(commitOperation.getTransactionId())) {
-                scheduleCommitOperation(operations, commitOperation, locks);
+                scheduleCommitOperation(operations, commitOperation);
             } else {
                 lockTable.addCommitWait(commitOperation);
             }
         } else {
             if (lockTable.convertWriteToCertify(commitOperation.getTransactionId())) {
-                scheduleCommitOperation(operations, commitOperation, locks);
+                scheduleCommitOperation(operations, commitOperation);
             } else {
                 lockTable.addCommitWait(commitOperation);
             }
         }
     }
 
-    private void scheduleCommitOperation(List<Operation> operations, Operation commitOperation, Map<Integer, List<Lock>> locks) {
-        scheduleRegularOperation(operations, commitOperation);
-        lockTable.addCommitGrant(commitOperation);
-        lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
+private void scheduleCommitOperation(List<Operation> operations, Operation commitOperation) {
+    scheduleRegularOperation(operations, commitOperation);
+    lockTable.addCommitGrant(commitOperation);
+    lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
 
-        List<Integer> reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
-        lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
+    List<Integer> reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
+    lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
 
-        Optional.ofNullable(reachedNodes)
-            .ifPresent(nodes -> nodes.forEach(transactionId -> {
-                List<Lock> lockListCopy = new ArrayList<>(lockTable.locks);
-                List<Lock> waitingLocks = lockListCopy.stream()
-                    .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
-                    .peek(lock -> {
-                        if (lockTable.canGrantLock(lock)) {
-                            lock.setStatus(LockStatus.GRANTED);
-                        }
-                    }).toList();
-                locks.put(transactionId, waitingLocks);
-            }));
+    List<Lock> locksToGrant = new ArrayList<>();
+
+    for (Integer transactionId : reachedNodes) {
+        lockTable.locks.stream()
+                .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
+                .forEach(lock -> {
+                    if (lockTable.canGrantWaitingLock(lock)) {
+                        locksToGrant.add(lock);
+                    }
+                });
     }
+
+    List<Lock> filteredLocks = null;
+    if (!locksToGrant.isEmpty()) {
+        Integer firstTransactionId = locksToGrant.get(0).getTransactionId();
+        filteredLocks = lockTable.locks.stream().filter(lock -> lock.getTransactionId().equals(firstTransactionId)).toList();
+        List<Lock> difference = new ArrayList<>(locksToGrant);
+        difference.removeAll(filteredLocks);
+        lockTable.verifyConflicyBetwenInCommonLocks(filteredLocks, difference);
+
+
+        for (Lock lock : filteredLocks) {
+            Operation operation = lock.getOperation();
+
+            Lock tableIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table);
+            Lock pageIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table.getPages());
+
+            tableIntentLock.setStatus(LockStatus.GRANTED);
+            pageIntentLock.setStatus(LockStatus.GRANTED);
+
+            lockTable.locks.add(tableIntentLock);
+            lockTable.locks.add(pageIntentLock);
+
+            scheduledOperations.add(lock.getOperation());
+            lock.setStatus(LockStatus.GRANTED);
+            lock.getOperation().setStatus(OperationStatus.EXECUTED);
+        }
+    }
+}
 
     public void scheduleRegularOperation(List<Operation> operations, Operation operationToSchedule) {
-        scheduledOperations.add(operationToSchedule);
-        operationToSchedule.setStatus(OperationStatus.EXECUTED);
+        if (operationToSchedule.getStatus().equals(OperationStatus.NONEXECUTED)) {
+            operationToSchedule.setStatus(OperationStatus.EXECUTED);
+            scheduledOperations.add(operationToSchedule);
+        }
     }
+
+    public List<Operation> getScheduledOperations() {
+        return scheduledOperations;
+    }
+
 }
