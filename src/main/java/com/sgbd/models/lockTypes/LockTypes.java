@@ -8,5 +8,6 @@ public enum LockTypes {
     READ_INTENT,
     WRITE_INTENT,
     UPDATE_INTENT,
-    CERTIFY_INTENT
+    CERTIFY_INTENT,
+    COMMIT
 }

@@ -55,8 +55,12 @@ public class Scheduler {
                 lockTable.addCommitWait(commitOperation);
             }
         } else {
-            if (lockTable.convertWriteToCertify(commitOperation.getTransactionId())) {
-                scheduleCommitOperation(operations, commitOperation);
+            if (!lockTable.theresOperationWaiting(commitOperation.getTransactionId())) {
+                if (lockTable.convertWriteToCertify(commitOperation.getTransactionId())) {
+                    scheduleCommitOperation(operations, commitOperation);
+                } else {
+                    lockTable.addCommitWait(commitOperation);
+                }
             } else {
                 lockTable.addCommitWait(commitOperation);
             }
@@ -75,12 +79,12 @@ private void scheduleCommitOperation(List<Operation> operations, Operation commi
 
     for (Integer transactionId : reachedNodes) {
         lockTable.locks.stream()
-                .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
-                .forEach(lock -> {
-                    if (lockTable.canGrantWaitingLock(lock)) {
-                        locksToGrant.add(lock);
-                    }
-                });
+            .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
+            .forEach(lock -> {
+                if (lockTable.canGrantWaitingLock(lock)) {
+                    locksToGrant.add(lock);
+                }
+            });
     }
 
     List<Lock> filteredLocks = null;

@@ -13,6 +13,8 @@ import com.sgbd.models.operations.OperationStatus;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
+
 public class LockTable {
     public final List<Lock> locks;
     public WaitForGraph waitForGraph;
@@ -65,12 +67,18 @@ public class LockTable {
     //  |iul| + | - | - | - | + | + | + |
 
     private boolean lockConflict(Lock lockOnWait, Lock lockOnGrant) {
-        if (lockOnWait.getObject() == lockOnGrant.getObject()) {
-            int requestedIndex = getLockTypeIndex(lockOnWait.getType());
-            int grantedIndex = getLockTypeIndex(lockOnGrant.getType());
-            return conflictTable[requestedIndex][grantedIndex];
+//        if (lockOnWait.getObject() == lockOnGrant.getObject()) {
+//            int requestedIndex = getLockTypeIndex(lockOnWait.getType());
+//            int grantedIndex = getLockTypeIndex(lockOnGrant.getType());
+//            return conflictTable[requestedIndex][grantedIndex];
+//        }
+//        return false;
+        if (lockOnGrant.getTransactionId().equals(lockOnWait.getTransactionId())) {
+            return false;
         }
-        return false;
+        int requestedIndex = getLockTypeIndex(lockOnWait.getType());
+        int grantedIndex = getLockTypeIndex(lockOnGrant.getType());
+        return conflictTable[requestedIndex][grantedIndex];
     }
 
     private Row findRow(char object) {
@@ -94,11 +102,25 @@ public class LockTable {
         Row row = findRow(operation.getObject());
         Lock lock = new Lock(operation, row);
 
-        List<Lock> pageLocks = locks.stream()
-            .filter(lk -> lk.getGranularityType().equals(GranularityType.PAGE))
-            .toList();
+//        List<Lock> pageLocks = locks.stream()
+//            .filter(lk -> lk.getGranularityType().equals(GranularityType.PAGE))
+//            .toList();
 
-        for (Lock pageLock : pageLocks) {
+        List<Lock> pageLocks = locks.stream()
+                .filter(lk -> lk.getGranularityType().equals(GranularityType.PAGE))
+                .toList();
+
+        List<Lock> pageLocksCopy = new ArrayList<>();
+        for (Lock lock1: pageLocks) {
+            if (lock1.getTransactionId().equals(operation.getTransactionId())){
+                pageLocksCopy.add(lock1);
+            }
+        }
+
+        List<Lock> difference = new ArrayList<Lock>(pageLocks);
+        difference.removeAll(pageLocksCopy);
+
+        for (Lock pageLock : difference) {
             if (lockConflict(lock, pageLock)) {
                 lock.setStatus(LockStatus.WAITING);
                 locks.add(lock);
@@ -108,7 +130,10 @@ public class LockTable {
         }
 
         Lock currentRowLock = locks.stream()
-            .filter(lk -> lk.getGranularity().equals(row) && lk.getStatus().equals(LockStatus.GRANTED))
+            .filter(lk -> lk.getGranularity().equals(row) &&
+                    lk.getStatus().equals(LockStatus.GRANTED) &&
+                    !lk.getTransactionId().equals(operation.getTransactionId())
+            )
             .findFirst()
             .orElse(null);
 
@@ -154,6 +179,9 @@ public class LockTable {
     }
 
     public void addEdgeAndVerifyDeadlock(int fromNode, int toNode) {
+        if (fromNode == toNode) {
+            return;
+        }
         waitForGraph.addWaitEdge(fromNode, toNode);
         if (waitForGraph.hasCycle()) {
             Lock firstFromTransation = locks.stream().filter(lock -> lock.getTransactionId() == fromNode).findFirst().get();
@@ -185,6 +213,9 @@ public class LockTable {
                         .filter(lock -> lock.getTransactionId().equals(tId) && lock.getStatus().equals(LockStatus.WAITING))
                         .forEach(lock -> {
                             if (canGrantLock(lock)) {
+                                if(lock.getType().equals(LockTypes.COMMIT)){
+                                    releaseLocksByTransactionId(lock.getTransactionId());
+                                }
                                 scheduledOperations.add(lock.getOperation());
                                 lock.setStatus(LockStatus.GRANTED);
                                 lock.getOperation().setStatus(OperationStatus.EXECUTED);
@@ -213,7 +244,7 @@ public class LockTable {
     }
 
     public void releaseLocksByTransactionId(int transactionId) {
-        locks.removeIf(lock -> lock.getTransactionId() == transactionId);
+        locks.removeIf(lock -> lock.getTransactionId() == transactionId && (lock.getType().equals(LockTypes.READ) || lock.getType().equals(LockTypes.WRITE) ||lock.getType().equals(LockTypes.UPDATE) || lock.getType().equals(LockTypes.READ_INTENT) || lock.getType().equals(LockTypes.CERTIFY) || lock.getType().equals(LockTypes.CERTIFY_INTENT) || lock.getType().equals(LockTypes.UPDATE_INTENT) || lock.getType().equals(LockTypes.WRITE_INTENT)));
     }
 
     public boolean convertWriteToCertify(int transactionId) {

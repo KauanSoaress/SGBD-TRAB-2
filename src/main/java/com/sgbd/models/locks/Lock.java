@@ -38,7 +38,7 @@ public class Lock {
 
     private LockTypes determineLockType(OperationTypes operationType) {
         return switch (operationType) {
-            case COMMIT -> LockTypes.CERTIFY;
+            case COMMIT -> LockTypes.COMMIT;
             case UPDATE -> LockTypes.UPDATE;
             case READ -> LockTypes.READ;
             case WRITE -> LockTypes.WRITE;

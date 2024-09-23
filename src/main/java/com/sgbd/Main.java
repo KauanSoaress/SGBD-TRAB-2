@@ -9,9 +9,11 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) {
 
-//        String entrada_ai = "r4(v)r3(y)r1(y)r1(x)w2(u)r2(x)w1(y)r2(y)c1w4(u)r3(x)c4w3(u)w3(z)c3";
-//        String entrada_ai = "w2(u)w3(u)w4(u)w4(x)w2(x)c2c3c4";
-        String entrada_ai = "r1(x)w1(y)r2(y)w2(z)c1r3(z)w3(x)c3c2";
+//        String entrada_ai = "w2(u)w3(u)w4(u)w4(x)w2(x)c3c2c4";
+//          String entrada_ai = "w2(u)w3(u)w4(u)w4(x)w2(x)c2c3c4";
+//        String entrada_ai = "r1(x)w1(y)r2(y)w2(z)c1r3(z)w3(x)c3c2";
+        String entrada_ai = "r1(x)r2(x)w1(x)r1(y)c1w2(u)r3(u)c2w3(y)c3";
+
 
         List<Operation> operations = InputReader.readInput(entrada_ai);
         Scheduler scheduler = new Scheduler(operations);
