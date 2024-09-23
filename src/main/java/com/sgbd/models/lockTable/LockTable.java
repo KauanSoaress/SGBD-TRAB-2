@@ -17,6 +17,7 @@ public class LockTable {
     public final List<Lock> locks;
     public WaitForGraph waitForGraph;
     public Table table = new Table(UUID.randomUUID());
+    public List<Integer> abortedTransactions = new ArrayList<>();
     public List<Operation> operations;
     public List<Operation> scheduledOperations;
 
@@ -148,35 +149,37 @@ public class LockTable {
             Lock firstToTransation = locks.stream().filter(lock -> lock.getTransactionId() == toNode).findFirst().get();
 
             if (firstFromTransation.getOperation().getTimestamp().after(firstToTransation.getOperation().getTimestamp())) {
+                System.out.println("Abortando transação " + fromNode);
                 abortTransaction(fromNode);
             } else {
+                System.out.println("Abortando transação " + toNode);
                 abortTransaction(toNode);
             }
         }
     }
 
     public void abortTransaction(int transactionId) {
+        abortedTransactions.add(transactionId);
         locks.removeIf(lock -> lock.getTransactionId() == transactionId);
         scheduledOperations.removeIf(operation -> operation.getTransactionId() == transactionId);
-        operations.forEach(op -> op.setStatus(OperationStatus.ABORTED));
+        operations.stream()
+                .filter(op -> op.getTransactionId() == transactionId)
+                .forEach(op -> op.setStatus(OperationStatus.ABORTED));
 
         List<Integer> reachedNodes = waitForGraph.recoverReachedNodes(transactionId);
 
         waitForGraph.removeAllEdges(transactionId);
-
-
         Optional.ofNullable(reachedNodes)
-            .ifPresent(nodes -> nodes.forEach(tId -> {
-                locks.stream()
-                    .filter(lock -> lock.getTransactionId().equals(tId) && lock.getStatus().equals(LockStatus.WAITING))
-                    .forEach(lock -> {
-                        if (canGrantLock(lock)) {
-                            lock.setStatus(LockStatus.GRANTED);
-                        }
-                    });
-            }));
+                .ifPresent(nodes -> nodes.forEach(tId -> locks.stream()
+                        .filter(lock -> lock.getTransactionId().equals(tId) && lock.getStatus().equals(LockStatus.WAITING))
+                        .forEach(lock -> {
+                            if (canGrantLock(lock)) {
+                                scheduledOperations.add(lock.getOperation());
+                                lock.setStatus(LockStatus.GRANTED);
+                                lock.getOperation().setStatus(OperationStatus.EXECUTED);
+                            }
+                        })));
     }
-
 
     public void addCommitGrant(Operation operation) {
         Lock lock = new Lock(operation, new Row('-'));
@@ -205,7 +208,8 @@ public class LockTable {
     public boolean convertWriteToCertify(int transactionId) {
         if (canConvertWriteToCertify(transactionId)) {
             locks.stream()
-                    .filter(lk -> lk.getType().equals(LockTypes.WRITE))
+                    .filter(lk -> lk.getType().equals(LockTypes.WRITE) &&
+                            lk.getTransactionId().equals(transactionId))
                     .forEach(lk -> lk.setType(LockTypes.CERTIFY));
             return true;
         }
@@ -229,11 +233,11 @@ public class LockTable {
                 .stream()
                 .filter(lock -> lock.getTransactionId()
                         .equals(currentLock.getTransactionId()) &&
-                        lock.getStatus().equals(LockStatus.WAITING)
-                )
+                        lock.getStatus().equals(LockStatus.WAITING) &&
+                        !lock.equals(currentLock))
                 .toList();
 
-        if (!sameTransactionLocks.isEmpty() && !sameTransactionLocks.get(0).equals(currentLock)) {
+        if (!sameTransactionLocks.isEmpty()) {
             return false;
         }
 
@@ -244,5 +248,14 @@ public class LockTable {
             }
         }
         return true;
+    }
+
+    public void removeLock(Lock lock) {
+        for (Lock lk: locks) {
+            if (lk.equals(lock)) {
+                locks.remove(lk);
+                break;
+            }
+        }
     }
 }
