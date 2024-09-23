@@ -63,42 +63,44 @@ public class Scheduler {
         }
     }
 
-    private void scheduleCommitOperation(List<Operation> operations, Operation commitOperation){
-        scheduleRegularOperation(operations, commitOperation);
-        lockTable.addCommitGrant(commitOperation);
-        lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
+private void scheduleCommitOperation(List<Operation> operations, Operation commitOperation) {
+    scheduleRegularOperation(operations, commitOperation);
+    lockTable.addCommitGrant(commitOperation);
+    lockTable.releaseLocksByTransactionId(commitOperation.getTransactionId());
 
-        List<Integer> reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
-        lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
+    List<Integer> reachedNodes = lockTable.waitForGraph.recoverReachedNodes(commitOperation.getTransactionId());
+    lockTable.waitForGraph.removeAllEdges(commitOperation.getTransactionId());
 
-        /*
-            * Para cada nó relacionado a transação desse commit,
-            * se houver bloqueio em espera para o nó, e for possível conceder o bloqueio,
-            * então o bloqueio é concedido.
-            * Caso contrário, o bloqueio é mantido em espera.
-         */
-        for (Integer transactionId : reachedNodes) {
-            lockTable.locks.stream()
-                .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
-                .forEach(lock -> {
-                    if (lockTable.canGrantLock(lock)) {
-                        scheduledOperations.add(lock.getOperation());
-                        lock.setStatus(LockStatus.GRANTED);
-                        lock.getOperation().setStatus(OperationStatus.EXECUTED);
-                    }
-                });
-        }
-//        Optional.ofNullable(reachedNodes)
-//            .ifPresent(nodes -> nodes.forEach(transactionId -> {
-//                lockTable.locks.stream()
-//                    .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
-//                    .peek(lock -> {
-//                        lockTable.removeLock(lock);
-//                        lockTable.grantLock(lock.getOperation());
-//
-//                    });
-//            }));
+    List<Lock> locksToGrant = new ArrayList<>();
+
+    for (Integer transactionId : reachedNodes) {
+        lockTable.locks.stream()
+            .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
+            .forEach(lock -> {
+                if (lockTable.canGrantLock(lock)) {
+                    //lock.setStatus(LockStatus.GRANTED);
+                    locksToGrant.add(lock);
+                }
+            });
     }
+
+    for (Lock lock : locksToGrant) {
+        Operation operation = lock.getOperation();
+
+        Lock tableIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table);
+        Lock pageIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table.getPages());
+
+        tableIntentLock.setStatus(LockStatus.GRANTED);
+        pageIntentLock.setStatus(LockStatus.GRANTED);
+
+        lockTable.locks.add(tableIntentLock);
+        lockTable.locks.add(pageIntentLock);
+
+        scheduledOperations.add(lock.getOperation());
+        lock.setStatus(LockStatus.GRANTED);
+        lock.getOperation().setStatus(OperationStatus.EXECUTED);
+    }
+}
 
     public void scheduleRegularOperation(List<Operation> operations, Operation operationToSchedule) {
         if (operationToSchedule.getStatus().equals(OperationStatus.NONEXECUTED)) {

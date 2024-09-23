@@ -119,6 +119,17 @@ public class LockTable {
             return false;
         }
 
+        Lock firstTransactionWaitingLock = locks.stream()
+            .filter(lk -> lk.getTransactionId().equals(operation.getTransactionId()) && lk.getStatus().equals(LockStatus.WAITING))
+            .findFirst()
+            .orElse(null);
+
+        if (firstTransactionWaitingLock != null && !firstTransactionWaitingLock.equals(lock)) {
+            lock.setStatus(LockStatus.WAITING);
+            locks.add(lock);
+            return false;
+        }
+
         Lock tableIntentLock = new Lock(operation, determineLockType(operation), table);
         Lock pageIntentLock = new Lock(operation, determineLockType(operation), table.getPages());
 
@@ -133,7 +144,7 @@ public class LockTable {
         return true;
     }
 
-    private LockTypes determineLockType(Operation operation) {
+    public LockTypes determineLockType(Operation operation) {
         return switch (operation.getType()) {
             case WRITE -> LockTypes.WRITE_INTENT;
             case READ -> LockTypes.READ_INTENT;
@@ -222,8 +233,14 @@ public class LockTable {
                 .map(Lock::getObject)
                 .collect(Collectors.toSet());
 
+        if (locks.stream().filter(lock -> lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING)).count() > 1) {
+            return false;
+        }
+
         return locks.stream()
-                .filter(lock -> lock.getType().equals(LockTypes.READ) && !lock.getTransactionId().equals(transactionId))
+                .filter(lock -> lock.getType().equals(LockTypes.READ) &&
+                        !lock.getTransactionId().equals(transactionId) &&
+                        lock.getStatus().equals(LockStatus.GRANTED))
                 .noneMatch(lock -> writeLockedObjects.contains(lock.getObject()));
     }
 
@@ -237,7 +254,7 @@ public class LockTable {
                         !lock.equals(currentLock))
                 .toList();
 
-        if (!sameTransactionLocks.isEmpty()) {
+        if (!sameTransactionLocks.isEmpty() && sameTransactionLocks.get(0).getOperation().getTimestamp().before(currentLock.getOperation().getTimestamp())) {
             return false;
         }
 
