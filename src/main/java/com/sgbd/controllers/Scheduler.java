@@ -78,7 +78,7 @@ private void scheduleCommitOperation(List<Operation> operations, Operation commi
             .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
             .forEach(lock -> {
                 if (lockTable.canGrantLock(lock)) {
-                    //lock.setStatus(LockStatus.GRANTED);
+                    lock.setStatus(LockStatus.GRANTED);
                     locksToGrant.add(lock);
                 }
             });
