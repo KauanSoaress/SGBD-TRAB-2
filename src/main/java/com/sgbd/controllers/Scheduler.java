@@ -75,30 +75,39 @@ private void scheduleCommitOperation(List<Operation> operations, Operation commi
 
     for (Integer transactionId : reachedNodes) {
         lockTable.locks.stream()
-            .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
-            .forEach(lock -> {
-                if (lockTable.canGrantLock(lock)) {
-                    lock.setStatus(LockStatus.GRANTED);
-                    locksToGrant.add(lock);
-                }
-            });
+                .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
+                .forEach(lock -> {
+                    if (lockTable.canGrantWaitingLock(lock)) {
+                        locksToGrant.add(lock);
+                    }
+                });
     }
 
-    for (Lock lock : locksToGrant) {
-        Operation operation = lock.getOperation();
+    List<Lock> filteredLocks = null;
+    if (!locksToGrant.isEmpty()) {
+        Integer firstTransactionId = locksToGrant.get(0).getTransactionId();
+        filteredLocks = lockTable.locks.stream().filter(lock -> lock.getTransactionId().equals(firstTransactionId)).toList();
+        List<Lock> difference = new ArrayList<>(locksToGrant);
+        difference.removeAll(filteredLocks);
+        lockTable.verifyConflicyBetwenInCommonLocks(filteredLocks, difference);
 
-        Lock tableIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table);
-        Lock pageIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table.getPages());
 
-        tableIntentLock.setStatus(LockStatus.GRANTED);
-        pageIntentLock.setStatus(LockStatus.GRANTED);
+        for (Lock lock : filteredLocks) {
+            Operation operation = lock.getOperation();
 
-        lockTable.locks.add(tableIntentLock);
-        lockTable.locks.add(pageIntentLock);
+            Lock tableIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table);
+            Lock pageIntentLock = new Lock(operation, lockTable.determineLockType(operation), lockTable.table.getPages());
 
-        scheduledOperations.add(lock.getOperation());
-        lock.setStatus(LockStatus.GRANTED);
-        lock.getOperation().setStatus(OperationStatus.EXECUTED);
+            tableIntentLock.setStatus(LockStatus.GRANTED);
+            pageIntentLock.setStatus(LockStatus.GRANTED);
+
+            lockTable.locks.add(tableIntentLock);
+            lockTable.locks.add(pageIntentLock);
+
+            scheduledOperations.add(lock.getOperation());
+            lock.setStatus(LockStatus.GRANTED);
+            lock.getOperation().setStatus(OperationStatus.EXECUTED);
+        }
     }
 }
 

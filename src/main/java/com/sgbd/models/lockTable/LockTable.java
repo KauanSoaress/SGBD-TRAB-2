@@ -244,6 +244,28 @@ public class LockTable {
                 .noneMatch(lock -> writeLockedObjects.contains(lock.getObject()));
     }
 
+    public void verifyConflicyBetwenInCommonLocks(List<Lock> locksToRelease, List<Lock> otherLocks) {
+        for (Lock lockToRelease: locksToRelease) {
+            for (Lock otherLock: otherLocks) {
+                if (lockConflict(lockToRelease, otherLock)) {
+                    addEdgeAndVerifyDeadlock(lockToRelease.getTransactionId(), otherLock.getTransactionId());
+                }
+            }
+        }
+    }
+
+    public boolean canGrantWaitingLock(Lock currentLock) {
+        List<Lock> grantedLocks = locks.stream().filter(lk -> lk.getStatus().equals(LockStatus.GRANTED)).toList();
+
+        for (Lock lock: grantedLocks) {
+            if (lockConflict(currentLock, lock)) {
+                addEdgeAndVerifyDeadlock(lock.getTransactionId(), currentLock.getTransactionId());
+                return false;
+            }
+        }
+        return true;
+    }
+
     public boolean canGrantLock(Lock currentLock) {
         List<Lock> grantedLocks = locks.stream().filter(lk -> lk.getStatus().equals(LockStatus.GRANTED)).toList();
         List<Lock> sameTransactionLocks = locks
