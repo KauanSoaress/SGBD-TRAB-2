@@ -52,6 +52,7 @@ public class LockTable {
             case WRITE_INTENT -> 5;
             case UPDATE_INTENT -> 6;
             case CERTIFY_INTENT -> 7;
+            case COMMIT -> 3;
             default -> throw new IllegalArgumentException("Tipo de bloqueio desconhecido: " + type);
         };
     }
@@ -208,19 +209,20 @@ public class LockTable {
         List<Integer> reachedNodes = waitForGraph.recoverReachedNodes(transactionId);
 
         waitForGraph.removeAllEdges(transactionId);
+        List<Lock> lockCopy = new ArrayList<>(locks);
         Optional.ofNullable(reachedNodes)
-                .ifPresent(nodes -> nodes.forEach(tId -> locks.stream()
-                        .filter(lock -> lock.getTransactionId().equals(tId) && lock.getStatus().equals(LockStatus.WAITING))
-                        .forEach(lock -> {
-                            if (canGrantLock(lock)) {
-                                if(lock.getType().equals(LockTypes.COMMIT)){
-                                    releaseLocksByTransactionId(lock.getTransactionId());
-                                }
-                                scheduledOperations.add(lock.getOperation());
-                                lock.setStatus(LockStatus.GRANTED);
-                                lock.getOperation().setStatus(OperationStatus.EXECUTED);
-                            }
-                        })));
+            .ifPresent(nodes -> nodes.forEach(tId -> lockCopy.stream()
+                .filter(lock -> lock.getTransactionId().equals(tId) && lock.getStatus().equals(LockStatus.WAITING))
+                .forEach(lock -> {
+                    if (canGrantLock(lock)) {
+                        if(lock.getType().equals(LockTypes.COMMIT)){
+                            releaseLocksByTransactionId(lock.getTransactionId());
+                        }
+                        scheduledOperations.add(lock.getOperation());
+                        lock.setStatus(LockStatus.GRANTED);
+                        lock.getOperation().setStatus(OperationStatus.EXECUTED);
+                    }
+                })));
     }
 
     public void addCommitGrant(Operation operation) {
