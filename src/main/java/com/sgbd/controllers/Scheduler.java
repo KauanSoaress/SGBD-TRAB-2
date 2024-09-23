@@ -80,10 +80,11 @@ public class Scheduler {
         for (Integer transactionId : reachedNodes) {
             lockTable.locks.stream()
                 .filter(lock -> lock != null && lock.getTransactionId().equals(transactionId) && lock.getStatus().equals(LockStatus.WAITING))
-                .peek(lock -> {
-                    lockTable.removeLock(lock);
-                    if (lockTable.grantLock(lock.getOperation())){
-                        scheduleRegularOperation(operations, lock.getOperation());
+                .forEach(lock -> {
+                    if (lockTable.canGrantLock(lock)) {
+                        scheduledOperations.add(lock.getOperation());
+                        lock.setStatus(LockStatus.GRANTED);
+                        lock.getOperation().setStatus(OperationStatus.EXECUTED);
                     }
                 });
         }
